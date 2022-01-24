@@ -28,7 +28,7 @@ The global scoreboard looks like this:
   - race against a remote time
 > **maptimes global**
   - prints the top 30 global times for current map (Note: known issue in v1.36global: not always accurate due to only using top 15 times per remote server. Fix pending)
-> **loadglobalusers**
+> **loadglobalusers** (requires admin lvl 5+)
   - full re-fetch and processing of the users.t files from each configured remote server
     **NOTE**: Unlike the maptimes and demo files, the users.t files are only loaded on initial server start.
     This command can be ran if needed, but best to run very scarcely and not while someone is timing (due to potential frame blocking).
