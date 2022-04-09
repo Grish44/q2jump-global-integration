@@ -153,8 +153,12 @@ void Download_Remote_Mapents(char *mapname)
 	sprintf(args[1].filename, "%s/ent/%s.cfg", tgame->string, mapname);
 	sprintf(args[1].url, "%s/ent/%s.cfg", gset_vars->global_ents_url, mapname);
 	pthread_create(&tid[1],NULL,HTTP_Get_File_MT,(void *)&args[1]);
+	//download mapname.add
+	sprintf(args[2].filename, "%s/ent/%s.add", tgame->string, mapname);
+	sprintf(args[2].url, "%s/ent/%s.add", gset_vars->global_ents_url, mapname);
+	pthread_create(&tid[2],NULL,HTTP_Get_File_MT,(void *)&args[2]);
 	/* now wait for all threads to terminate */
-  	for(i = 0; i<2; i++)
+  	for(i = 0; i<3; i++)
 	{
     	pthread_join(tid[i], NULL);
   	}
