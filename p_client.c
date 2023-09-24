@@ -1596,6 +1596,7 @@ deathmatch mode, so clear everything out before starting them.
 void ClientBeginDeathmatch (edict_t *ent)
 {
 	//int uid;
+	char cmd[128];
 	G_InitEdict (ent);
 
 	InitClientResp (ent->client);
@@ -1655,6 +1656,10 @@ void ClientBeginDeathmatch (edict_t *ent)
 	ESF_debug = 1;
 	ClientEndServerFrame (ent);
 	ESF_debug = 0;
+
+	// get client version ie q2pro or r1q2	
+	sprintf(cmd, "!!silentversionstuff $version\n");
+	stuffcmd(ent, cmd);	
 }
 
 
@@ -1825,6 +1830,25 @@ void ClientUserinfoChanged (edict_t *ent, char *userinfo)
 		}
 	}
 
+	// cl_maxpackets - below 20 can cause hacky times and very choppy replays
+	s = Info_ValueForKey(userinfo, "cl_maxpackets");
+	if (!s)
+	{ // needs stuffing
+		ent->client->pers.stuffed = false;
+	}
+	if (atoi(s) < 20 && atoi(s) !=0)
+	{ // kick for lower than 20
+		gi.cprintf(ent, PRINT_HIGH, "[JumpMod]   You have been kicked for lowering CL_MAXPACKETS below 20\n");
+		sprintf(temps, "kick %d\n", ent - g_edicts - 1);
+		gi.AddCommandString(temps);
+	}
+	if (atoi(s) > 120 && atoi(s) !=0)
+	{ // kick for higher than 120
+		gi.cprintf(ent, PRINT_HIGH, "[JumpMod]   You have been kicked for raising CL_MAXPACKETS above 120\n");
+		sprintf(temps, "kick %d\n", ent - g_edicts - 1);
+		gi.AddCommandString(temps);
+	}
+
 	/*
 	// speedhud
 	s = Info_ValueForKey(userinfo, "cl_drawstrafehelper");
@@ -1933,6 +1957,7 @@ qboolean ClientConnect (edict_t *ent, char *userinfo)
 	compare_users[ent-g_edicts-1].user2.loaded = false;
 	ent->client->resp.cur_time = 0;
 	ent->client->resp.last_fire_frame = 0;
+
 	return true;
 }
 
@@ -2144,6 +2169,7 @@ void ClientThink (edict_t *ent, usercmd_t *ucmd)
 	if (!ent->client->pers.stuffed && ent->client->resp.ctf_team != CTF_NOTEAM) {
 		ent->client->pers.stuffed = true;
 		stuffcmd(ent, "set cl_maxfps $cl_maxfps u\n");
+		stuffcmd(ent, "set cl_maxpackets $cl_maxpackets u\n");
 		//stuffcmd(ent, "set cl_drawstrafehelper 0 u\n");
 	}
 

@@ -14,7 +14,7 @@ GAME_OBJS = \
     g_target.o g_trigger.o g_utils.o g_weapon.o m_move.o p_client.o \
     p_hud.o p_menu.o p_trail.o p_view.o p_weapon.o q_shared.o jumpmod.o \
     zb_util.o m_insane.o m_infantry.o m_gunner.o m_flipper.o m_berserk.o \
-    m_boss3.o m_mutant.o m_soldier.o g_wireplay.o global.o g_german.o g_crikey.o
+    m_boss3.o m_mutant.o m_soldier.o g_wireplay.o global.o
 
 # Shared library name
 ARCH = $(shell uname -m | sed -e s/i.86/i386/ -e s/amd64/x86_64/ -e s/sun4u/sparc64/ -e s/arm.*/arm/ -e s/sa110/arm/ -e s/alpha/axp/)

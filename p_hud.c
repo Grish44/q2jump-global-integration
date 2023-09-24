@@ -69,9 +69,18 @@ void MoveClientToIntermission (edict_t *ent)
 	// add the layout
 
 	if (deathmatch->value || coop->value)
-	{
-		BestTimesScoreboardMessage (ent, NULL);
-		gi.unicast (ent, true);
+	{		
+		// nasty hack to prevent wallfly from crashing and r1q2 limitations for on screen chars
+		if ((gset_vars->global_integration_enabled==1) && (strncmp(ent->client->resp.client_version,"q2pro",5) ==0))
+		{	
+			Display_Dual_Scoreboards ();
+			gi.unicast (ent, true);	
+		}
+		else
+		{
+			BestTimesScoreboardMessage (ent, NULL);
+			gi.unicast (ent, true);
+		}
 	}
 
 }
@@ -217,10 +226,14 @@ void BeginIntermission (edict_t *targ)
 			continue;
 		MoveClientToIntermission (client);
 	}
-	// Global Integration get map ent files
-	if (gset_vars->global_integration_enabled && gset_vars->global_ents_sync)
+	// Global Integration - purge demos and download ents
+	if (gset_vars->global_integration_enabled)
 	{
-		Download_Remote_Mapents(level.changemap);
+		Purge_Remote_Recordings();		 // clean up the demo files from last map
+		if (gset_vars->global_ents_sync) // get remote map ents
+		{
+			Download_Remote_Mapents(level.changemap);
+		}
 	}
 }
 
@@ -354,7 +367,6 @@ void BestTimesScoreboardGlobal (edict_t *ent)
 	Display_Global_Scoreboard ();
 	gi.unicast (ent, true);
 }
-
 
 /*
 ==================

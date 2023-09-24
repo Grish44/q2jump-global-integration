@@ -1,9 +1,9 @@
 #pragma once
 
 //defines
-#define MAX_USERS 4096
+#define MAX_USERS 2048 //reduced from 4096 to save memory
 #define MAX_HIGHSCORES 15
-#define CTF_VERSION_S		"1.36global"
+#define CTF_VERSION_S		"1.45global"
 #define		HOOK_READY	0
 #define		HOOK_OUT	1
 #define		HOOK_ON		2
@@ -312,8 +312,7 @@ qboolean	poppins_timer(int timeBetweenMessages);
 void		ClearPersistants(client_persistant_t* pers);
 void		CPSoundCheck(edict_t *ent);
 void		Cmd_Show_Maptimes_Wireplay(edict_t* ent);
-void		Cmd_Show_Maptimes_German(edict_t* ent);
-void		Cmd_Show_Maptimes_Crikey(edict_t* ent);
+void		SilentVersionStuff(edict_t *ent); // for getting a client version
 
 extern cvar_t		*gametype;
 extern admin_type	admin_pass[MAX_ADMINS];
@@ -484,6 +483,8 @@ typedef struct
 	int global_integration_enabled;
 	int global_ents_sync;
 	char global_ents_url[256];
+	int global_map_downloads;
+	char global_map_url[256];
 	char global_localhost_name[256];
 	char global_name_1[256];
 	char global_name_2[256];
@@ -718,7 +719,7 @@ void sort_users_3( int n );
 void UpdateThisUsersSortedUid(edict_t *ent);
 void resync(qboolean overide);
 void append_added_ini(char *mapname);
-qboolean ValidateMap (char *mapname);
+qboolean ValidateMap (char *mapname); // updated to try and download a missing map
 
 #define MAX_REPLAY_SPEED 18
 #define MIN_REPLAY_SPEED 0

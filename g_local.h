@@ -581,6 +581,11 @@ extern	cvar_t	*flood_msgs;
 extern	cvar_t	*flood_persecond;
 extern	cvar_t	*flood_waitdelay;
 
+//flood protection throwup, addball etc.
+extern	cvar_t	*flood_msgs_other;
+extern	cvar_t	*flood_persecond_other;
+extern	cvar_t	*flood_waitdelay_other;
+
 extern	cvar_t	*sv_maplist;
 
 //ZOID
@@ -1061,6 +1066,7 @@ typedef struct
 
 	hud_struct	hud[4];
 	char		hudstring[2048];
+	char		client_version[128];
 
 } client_respawn_t;
 
@@ -1160,9 +1166,14 @@ struct gclient_s
 
 	float		pickup_msg_time;
 
-	float		flood_locktill;		// locked from talking
+	float		flood_locktill;		// locked from talking	
 	float		flood_when[10];		// when messages were said
 	int			flood_whenhead;		// head pointer for when said
+	
+	// Flood protection for throwup and addball spam
+	float		flood_other_locktill;	// locked from spamming throwup and addball etc.
+	float		flood_other_when[10];	// when messages were said
+	int			flood_other_whenhead;	// head pointer for when said
 
 	float		respawn_time;		// can respawn when time > this
 

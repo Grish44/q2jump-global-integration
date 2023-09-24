@@ -1099,8 +1099,8 @@ Touch_Item
 void Touch_Item (edict_t *ent, edict_t *other, cplane_t *plane, csurface_t *surf)
 {
 	qboolean	taken;
-
-	if (!other->client)
+	
+	if (!other->client || other->client->resp.replaying) //not a client, or if client is watching a replay.
 		return;
 	if (other->health < 1)
 		return;		// dead people can't pickup

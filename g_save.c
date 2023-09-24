@@ -161,7 +161,7 @@ void InitGame (void)
 	cvar_t	*temp;
 	cvar_t	*jump_manual;
 	cvar_t	*port;
-	cvar_t	*tgame;
+	cvar_t	*tgame;	
 	char	text[128];
 
 	removed_map = false;
@@ -175,9 +175,9 @@ void InitGame (void)
 	FS_CreatePath(va("%s/jumpdemo/",tgame->string));
 	// dirs for global files	
 	FS_CreatePath(va("%s/global/jumpdemo/",tgame->string));
-	FS_CreatePath(va("%s/global/maptimes/",tgame->string));
+	//FS_CreatePath(va("%s/global/maptimes/wr/",tgame->string));
 	FS_CreatePath(va("%s/mapsent/",tgame->string));
-	FS_CreatePath(va("%s/ent/",tgame->string));
+	FS_CreatePath(va("%s/ent/",tgame->string));	
 
 	open_debug_file();
 	sprintf(text,"\n==== InitGame ====");
@@ -275,6 +275,11 @@ void InitGame (void)
 	flood_persecond = gi.cvar ("flood_persecond", "4", 0);
 	flood_waitdelay = gi.cvar ("flood_waitdelay", "10", 0);
 
+	//flood control throwup and addball
+	flood_msgs_other = gi.cvar ("flood_msgs_other", "10", 0);
+	flood_persecond_other = gi.cvar ("flood_persecond_other", "4", 0);
+	flood_waitdelay_other = gi.cvar ("flood_waitdelay_other", "10", 0);
+
 	// dm map list
 	sv_maplist = gi.cvar ("sv_maplist", "", 0);
 
@@ -336,9 +341,9 @@ void InitGame (void)
 		gi.dprintf("Started: Download and Load remote user files...\n");		
 		Download_Remote_Users_Files();
 		Load_Remote_Users_Files();
-		gi.dprintf("Completed: Download and Load remote user files\n");
-	}		
-	// end load remote user.t files
+		gi.dprintf("Completed: Download and Load remote user files\n");		
+	}	
+	// END Global Integration
 
 	if (!*jump_manual->string)
 		LoadManualList("manual.ini");//pooy

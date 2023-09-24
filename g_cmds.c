@@ -961,6 +961,37 @@ qboolean CheckFlood(edict_t *ent)
 	return false;
 }
 
+// An additional flood check to prevent server crashing from too many g_spawns (ie. throwup and addball spam)
+qboolean CheckFloodOther(edict_t *ent)
+{
+	int		i;
+	gclient_t *cl;
+
+	if (flood_msgs_other->value) {
+		cl = ent->client;
+
+        if (level.time < cl->flood_other_locktill) {
+			gi.cprintf(ent, PRINT_HIGH, "You can't vomit or play with your balls for %d more seconds\n",
+				(int)(cl->flood_other_locktill - level.time));
+            return true;
+        }
+        i = cl->flood_other_whenhead - flood_msgs_other->value + 1;
+        if (i < 0)
+            i = (sizeof(cl->flood_other_when)/sizeof(cl->flood_other_when[0])) + i;
+		if (cl->flood_other_when[i] && 
+			level.time - cl->flood_other_when[i] < flood_persecond_other->value) {
+			cl->flood_other_locktill = level.time + flood_waitdelay_other->value;
+			gi.cprintf(ent, PRINT_CHAT, "Flood protection:  You can't vomit or play with your balls for %d seconds.\n",
+				(int)flood_waitdelay_other->value);
+            return true;
+        }
+		cl->flood_other_whenhead = (cl->flood_other_whenhead + 1) %
+			(sizeof(cl->flood_other_when)/sizeof(cl->flood_other_when[0]));
+		cl->flood_other_when[cl->flood_other_whenhead] = level.time;
+	}
+	return false;
+}
+
 /*
 ==================
 Cmd_Say_f
@@ -1207,7 +1238,11 @@ void ClientCommand (edict_t *ent)
 		else if (Q_stricmp (cmd, "addball") == 0)
 		{
 			if (!level.status)
+			{
+				if (CheckFloodOther(ent))
+					return;
 				weapon_ball_fire (ent);
+			}				
 		}
 		else if (Q_stricmp (cmd, "store") == 0)
 		{
@@ -1237,6 +1272,8 @@ void ClientCommand (edict_t *ent)
 			Lastseen_Command(ent);
 		else if (Q_stricmp (cmd, "!stats") == 0)
 			Cmd_Stats(ent);
+		else if (Q_stricmp (cmd, "!!silentversionstuff") == 0)
+			SilentVersionStuff(ent);
 		else if (Q_stricmp (cmd, "showjumps") == 0)
 		{
 			ent->client->resp.showjumpdistance = !ent->client->resp.showjumpdistance;
@@ -1351,29 +1388,34 @@ void ClientCommand (edict_t *ent)
 			show_ent_list(ent,atoi(gi.argv(1)));
 		else if (Q_stricmp (cmd, "rement") == 0)
 			remove_ent (ent);
-		else if (Q_stricmp (cmd, "throwup") == 0)
+		else if (Q_stricmp(cmd, "throwup") == 0)
+		{
+			if (CheckFloodOther(ent))
+				return;
 			ThrowUpNow(ent);
-		else if (Q_stricmp(cmd, "loadglobalusers") == 0)
+		}
+		else if (Q_stricmp(cmd, "syncglobaldata") == 0)
 		{
 			if (ent->client->resp.admin >= aset_vars->ADMIN_GSET_LEVEL)
 			{
 				if (gset_vars->global_integration_enabled == 1)
 				{
-					gi.bprintf(PRINT_HIGH, "Fetching global user files...\n");
+					gi.bprintf(PRINT_HIGH, "Refreshing all global data...\n");
 					// full refresh, might cause performance issues
 					// shound't really be needed, use carefully!
-					Download_Remote_Users_Files();
+					Download_Remote_Users_Files();			
 					Load_Remote_Users_Files();
-					//Download_Remote_Maptimes();
-					//Load_Remote_Maptimes();
-					//Sort_Remote_Maptimes();
-					//Download_Remote_Recordings_MT();
-					//Load_Remote_Recordings(0); // start from position 0 == load them all
-					gi.bprintf(PRINT_HIGH, "Done. Reload map to take effect\n");
+					Download_Remote_Maptimes(level.mapname);
+					Load_Remote_Maptimes(level.mapname);
+					Sort_Remote_Maptimes();
+					Download_Remote_Recordings_MT(level.mapname);
+					Load_Remote_Recordings(0); // start from position 0 == load them all
+					gi.bprintf(PRINT_HIGH, "Done!\n");
+				} else {
+					gi.bprintf(PRINT_HIGH, "Global Integration is currently disabled on this server...\n");
 				}
-			}
+			}					
 		}
-
 	else if (Q_stricmp (cmd, "use") == 0)
 		Cmd_Use_f (ent);
 	// replay stuff
@@ -1458,10 +1500,6 @@ void ClientCommand (edict_t *ent)
 		ShowMapTimes (ent);
 	else if (Q_stricmp (cmd, "maptimeswp") == 0)
         Cmd_Show_Maptimes_Wireplay(ent);
-    else if (Q_stricmp (cmd, "maptimesger") == 0 || (Q_stricmp (cmd, "maptimesgerman") == 0 ))
-        Cmd_Show_Maptimes_German(ent);
-	else if (Q_stricmp (cmd, "maptimescri") == 0 || (Q_stricmp (cmd, "maptimescrikey") == 0 ))
-        Cmd_Show_Maptimes_Crikey(ent);
 	else if ((Q_stricmp (cmd, "!help") == 0) || (Q_stricmp (cmd, "!commands") == 0))
 		Cmd_Show_Help(ent);
 	else if (Q_stricmp (cmd, "compare") == 0)

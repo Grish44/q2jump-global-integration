@@ -1,7 +1,23 @@
 /*
 Global Server Integration
 Author: Grish
-Version: 1.0
+Version: 1.45global
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+
+See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
 */
 
 #include "g_local.h"
@@ -9,8 +25,9 @@ Version: 1.0
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#include <curl/curl.h>
+#include <curl/curl.h> // Dynamically link me!!
 #include <unistd.h>
+#include <time.h>
 
 // Local Function Declarations
 static void *HTTP_Get_File_MT(void *arguments);
@@ -135,8 +152,8 @@ void HTTP_Get_File(char *url, char *local_filename, int timeout)
 
 void Download_Remote_Mapents(char *mapname)
 {
-	struct http_get_struct args[gset_vars->global_replay_max];
-	pthread_t tid[gset_vars->global_threads_max];
+	struct http_get_struct args[3]; // 3 files max
+	pthread_t tid[3]; // 3 files max
 	cvar_t *tgame;
 	int i;
 	int tcount;
@@ -148,7 +165,7 @@ void Download_Remote_Mapents(char *mapname)
 	//download mapsent..
 	sprintf(args[0].filename, "%s/mapsent/%s.ent", tgame->string, mapname);
 	sprintf(args[0].url, "%s/mapsent/%s.ent", gset_vars->global_ents_url, mapname);
-	pthread_create(&tid[0],NULL,HTTP_Get_File_MT,(void *)&args[0]);	
+	pthread_create(&tid[0],NULL,HTTP_Get_File_MT,(void *)&args[0]);
 	//download mapname.cfg
 	sprintf(args[1].filename, "%s/ent/%s.cfg", tgame->string, mapname);
 	sprintf(args[1].url, "%s/ent/%s.cfg", gset_vars->global_ents_url, mapname);
@@ -180,13 +197,14 @@ static void *HTTP_Get_File_MT(void *arguments)
 	char filename[128];
 	strcpy(url, args->url);
 	strcpy(filename, args->filename);
-	FILE *fp;	
-	CURL *curl;
+	FILE *fp;
+	CURL *curl;	
 	curl = curl_easy_init();
-	if (curl) {
-		
-        fp = Open_File_RB_WB(filename);
-        if (!fp)
+	if (curl)
+	{
+
+		fp = Open_File_RB_WB(filename);
+		if (!fp)
 			return NULL;
 
 		curl_easy_setopt(curl, CURLOPT_URL, url);
@@ -196,19 +214,26 @@ static void *HTTP_Get_File_MT(void *arguments)
 		curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
 		curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
-		curl_easy_perform(curl);		
+		curl_easy_perform(curl);
 		curl_off_t cl;
 		// get returned byte length
-    	curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
+		curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD_T, &cl);
 		curl_easy_cleanup(curl);
+
+		// debug log
+		//gi.dprintf("filename: %s bytes: %d\n" , filename, cl);
+
 		if (cl > 0)
 		{
 			fflush(fp);
-			ftruncate(fileno(fp),(off_t)cl);
+			ftruncate(fileno(fp), (off_t)cl);
 			fclose(fp);
-		} else {
+		}
+		else
+		{
 			fseek(fp, 0, SEEK_END);
-			if (ftell(fp) == 0) { // if file is empty.
+			if (ftell(fp) == 0)
+			{ // if file is empty.
 				remove(filename);
 			}
 			fclose(fp);
@@ -217,143 +242,143 @@ static void *HTTP_Get_File_MT(void *arguments)
 	return NULL;
 }
 
-/*
-==============================
-Download_Remote_Recordings_NB()
+	/*
+	==============================
+	Download_Remote_Recordings_NB()
 
-Non-Blocking version using curl-multi single threaded with concurrent processing
-Working on x86_64 Linux, but not working on ARM64 - So using multi-threaded (MT) version for now...
-==============================
-*/
-void Download_Remote_Recordings_NB()
-{	
-	// validations
-	if (gset_vars->global_integration_enabled == 0)
-		return;
-
-	if (gset_vars->global_replay_max == 0)
-		return;
-
-	if (gset_vars->global_replay_max > MAX_REMOTE_REPLAYS)
-		return;
-
-    CURL *handles[gset_vars->global_replay_max];
-    CURLM *multi_handle;	
-	curl_off_t cl;
-    int i;
-    int running = 1;
-    FILE *fp[gset_vars->global_replay_max];
-    char filename[128];
-    char url[256];
-	cvar_t	*tgame;
-	tgame = gi.cvar("game", "", 0);
-	int total_handles=0;
-
-	curl_global_init(CURL_GLOBAL_ALL);		
-    for(i=0;i<gset_vars->global_replay_max;i++)
+	Non-Blocking version using curl-multi single threaded with concurrent processing
+	Working on x86_64 Linux, but not working on ARM64 - So using multi-threaded (MT) version for now...
+	==============================
+	*/
+	void Download_Remote_Recordings_NB()
 	{
-		if (strcmp(sorted_remote_map_best_times[i].server, gset_vars->global_localhost_name) == 0)
-			continue; //local record, no download needed
+		// validations
+		if (gset_vars->global_integration_enabled == 0)
+			return;
 
-		if (sorted_remote_map_best_times[i].time >0.0001)
+		if (gset_vars->global_replay_max == 0)
+			return;
+
+		if (gset_vars->global_replay_max > MAX_REMOTE_REPLAYS)
+			return;
+
+		CURL *handles[gset_vars->global_replay_max];
+		CURLM *multi_handle;
+		curl_off_t cl;
+		int i;
+		int running = 1;
+		FILE *fp[gset_vars->global_replay_max];
+		char filename[128];
+		char url[256];
+		cvar_t *tgame;
+		tgame = gi.cvar("game", "", 0);
+		int total_handles = 0;
+
+		curl_global_init(CURL_GLOBAL_ALL);
+		for (i = 0; i < gset_vars->global_replay_max; i++)
 		{
-			sprintf(url, "%s/jumpdemo/%s_%d.dj3", sorted_remote_map_best_times[i].replay_host_url, level.mapname, sorted_remote_map_best_times[i].id);
-			sprintf(filename, "%s/global/jumpdemo/%s_%d.%s", tgame->string, level.mapname, sorted_remote_map_best_times[i].id, sorted_remote_map_best_times[i].server);						
-			fp[total_handles] = Open_File_RB_WB(filename);			
-			if (!fp[total_handles])
-				continue;
-			handles[total_handles] = curl_easy_init();
-			curl_easy_setopt(handles[total_handles], CURLOPT_URL, url);
-			curl_easy_setopt(handles[total_handles], CURLOPT_WRITEDATA, fp[total_handles]);
-			curl_easy_setopt(handles[total_handles], CURLOPT_FAILONERROR, 1L);
-			curl_easy_setopt(handles[total_handles], CURLOPT_TIMEOUT, HTTP_MULTI_TIMEOUT);
-			curl_easy_setopt(handles[total_handles], CURLOPT_CONNECTTIMEOUT, HTTP_MULTI_CONN_TIMEOUT);
-			curl_easy_setopt(handles[total_handles], CURLOPT_SSL_VERIFYHOST, 0L);
-			curl_easy_setopt(handles[total_handles], CURLOPT_SSL_VERIFYPEER, 0L);
-			total_handles++;
-		}
-		
-    }
-	multi_handle = curl_multi_init();
-	for(i=0;i<total_handles;i++)
-	{		
-       	curl_multi_add_handle(multi_handle, handles[i]);
-	}
-	CURLMcode mc;
-    do {
-		gi.dprintf("running:%i.\n",running);
-        mc = curl_multi_perform(multi_handle, &running);
-        if (running)
-		{
-           mc = curl_multi_poll(multi_handle, NULL, 0, 1000, NULL);
-        }
-    } while (running && mc == CURLE_OK);
-    
-	//cleanups		
-	curl_multi_cleanup(multi_handle);
-    for(i=0;i<total_handles;i++)
-	{		
-		curl_easy_getinfo(handles[i], CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
-		curl_easy_cleanup(handles[i]);
-		if (cl > 0)
-		{
-			fflush(fp[i]);
-			ftruncate(fileno(fp[i]),(off_t)cl);
-		}
-        fclose(fp[i]);
-    }
-	curl_global_cleanup();	
-}
+			if (strcmp(sorted_remote_map_best_times[i].server, gset_vars->global_localhost_name) == 0)
+				continue; // local record, no download needed
 
-/*
-==============================
-Download_Remote_Recordings_MT
-
-Download the required "mapname_uid.dj3" files using multi-threads
-Called on each map load (via g_spawn.c)
-==============================
-*/
-void Download_Remote_Recordings_MT(char *mapname)
-{
-	// validations
-	if (gset_vars->global_integration_enabled == 0)
-		return;
-
-	if (gset_vars->global_replay_max == 0)
-		return;
-
-	if (gset_vars->global_replay_max > MAX_REMOTE_REPLAYS)
-		return;
-
-	if (!strlen(mapname))
-	{
-		strcpy(mapname, level.mapname);
-	}
-
-	// vars
-	struct http_get_struct args[gset_vars->global_replay_max];
-	pthread_t tid[gset_vars->global_threads_max];
-	cvar_t	*tgame;
-	int i;
-	int j;
-	int tcount = 0;
-	tgame = gi.cvar("game", "", 0);
-
-	// init curl	
-	curl_global_init(CURL_GLOBAL_ALL);
-
-	for (i=0; i<gset_vars->global_replay_max; i++)
-	{	
-		if (strcmp(sorted_remote_map_best_times[i].server, gset_vars->global_localhost_name) == 0)
-			continue; //local record, no download needed
-
-		if (sorted_remote_map_best_times[i].time >0.0001)
-		{
-			sprintf(args[i].url, "%s/jumpdemo/%s_%d.dj3", sorted_remote_map_best_times[i].replay_host_url, mapname, sorted_remote_map_best_times[i].id);
-			sprintf(args[i].filename, "%s/global/jumpdemo/%s_%d.%s", tgame->string, mapname, sorted_remote_map_best_times[i].id, sorted_remote_map_best_times[i].server);			
-			if (tcount == gset_vars->global_threads_max)
+			if (sorted_remote_map_best_times[i].time > 0.0001)
 			{
-				for (j = 0; j< tcount; j++)
+				sprintf(url, "%s/jumpdemo/%s_%d.dj3", sorted_remote_map_best_times[i].replay_host_url, level.mapname, sorted_remote_map_best_times[i].id);
+				sprintf(filename, "%s/global/jumpdemo/%s_%d.%s", tgame->string, level.mapname, sorted_remote_map_best_times[i].id, sorted_remote_map_best_times[i].server);
+				fp[total_handles] = Open_File_RB_WB(filename);
+				if (!fp[total_handles])
+					continue;
+				handles[total_handles] = curl_easy_init();
+				curl_easy_setopt(handles[total_handles], CURLOPT_URL, url);
+				curl_easy_setopt(handles[total_handles], CURLOPT_WRITEDATA, fp[total_handles]);
+				curl_easy_setopt(handles[total_handles], CURLOPT_FAILONERROR, 1L);
+				curl_easy_setopt(handles[total_handles], CURLOPT_TIMEOUT, HTTP_MULTI_TIMEOUT);
+				curl_easy_setopt(handles[total_handles], CURLOPT_CONNECTTIMEOUT, HTTP_MULTI_CONN_TIMEOUT);
+				curl_easy_setopt(handles[total_handles], CURLOPT_SSL_VERIFYHOST, 0L);
+				curl_easy_setopt(handles[total_handles], CURLOPT_SSL_VERIFYPEER, 0L);
+				total_handles++;
+			}
+		}
+		multi_handle = curl_multi_init();
+		for (i = 0; i < total_handles; i++)
+		{
+			curl_multi_add_handle(multi_handle, handles[i]);
+		}
+		CURLMcode mc;
+		do
+		{
+			gi.dprintf("running:%i.\n", running);
+			mc = curl_multi_perform(multi_handle, &running);
+			if (running)
+			{
+				mc = curl_multi_poll(multi_handle, NULL, 0, 1000, NULL);
+			}
+		} while (running && mc == CURLE_OK);
+
+		// cleanups
+		curl_multi_cleanup(multi_handle);
+		for (i = 0; i < total_handles; i++)
+		{
+			curl_easy_getinfo(handles[i], CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
+			curl_easy_cleanup(handles[i]);
+			if (cl > 0)
+			{
+				fflush(fp[i]);
+				ftruncate(fileno(fp[i]), (off_t)cl);
+			}
+			fclose(fp[i]);
+		}
+		curl_global_cleanup();
+	}
+
+	/*
+	==============================
+	Download_Remote_Recordings_MT
+
+	Download the required "mapname_uid.dj3" files using multi-threads
+	Called on each map load (via g_spawn.c)
+	==============================
+	*/
+	void Download_Remote_Recordings_MT(char *mapname)
+	{
+		// validations
+		if (gset_vars->global_integration_enabled == 0)
+			return;
+
+		if (gset_vars->global_replay_max == 0)
+			return;
+
+		if (gset_vars->global_replay_max > MAX_REMOTE_REPLAYS)
+			return;
+
+		if (!strlen(mapname))
+		{
+			strcpy(mapname, level.mapname);
+		}
+
+		// vars
+		struct http_get_struct args[gset_vars->global_replay_max];
+		pthread_t tid[gset_vars->global_threads_max];
+		cvar_t *tgame;
+		int i;
+		int j;
+		int tcount = 0;
+		tgame = gi.cvar("game", "", 0);
+
+		// init curl
+		curl_global_init(CURL_GLOBAL_ALL);
+
+		for (i = 0; i < gset_vars->global_replay_max; i++)
+		{
+			if (strcmp(sorted_remote_map_best_times[i].server, gset_vars->global_localhost_name) == 0)
+				continue; // local record, no download needed
+
+			if (sorted_remote_map_best_times[i].time > 0.0001)
+			{
+				sprintf(args[i].url, "%s/jumpdemo/%s_%d.dj3", sorted_remote_map_best_times[i].replay_host_url, mapname, sorted_remote_map_best_times[i].id);
+				sprintf(args[i].filename, "%s/global/jumpdemo/%s_%d.%s", tgame->string, mapname, sorted_remote_map_best_times[i].id, sorted_remote_map_best_times[i].server);
+				if (tcount == gset_vars->global_threads_max)
+				{
+					for (j = 0; j < tcount; j++)
 					{
     					pthread_join(tid[j], NULL); // close threads
   					}
@@ -426,7 +451,7 @@ void Load_Remote_Recordings(int index_from)
 	long lSize;
 	int i;		
 	tgame = gi.cvar("game", "", 0);
-	int index =0;
+	int index =0;	
 
 	// index_from arg is used to reload demos from index_now position, handy for when a new time is set locally
 	if (index_from > 0)
@@ -436,14 +461,13 @@ void Load_Remote_Recordings(int index_from)
 		return; // above max limit, exit
 		
 	for (i=index; i<gset_vars->global_replay_max; i++)
-	{
+	{		
 		level_items.recorded_time_frames[MAX_HIGHSCORES + (i+1)] = 0; // clear old slot
-		if (strcmp(sorted_remote_map_best_times[i].server, gset_vars->global_localhost_name)==0)
+		if (strcmp(sorted_remote_map_best_times[i].server, gset_vars->global_localhost_name)==0) // local demo
 		{
-			sprintf(demo_file_path, "%s/jumpdemo/%s_%d.dj3", tgame->string, level.mapname, sorted_remote_map_best_times[i].id);			
-
-		} // local demo
-		else if (sorted_remote_map_best_times[i].time >0.0001) // remote time
+			sprintf(demo_file_path, "%s/jumpdemo/%s_%d.dj3", tgame->string, level.mapname, sorted_remote_map_best_times[i].id);
+		} 
+		else if (sorted_remote_map_best_times[i].time >0.0001) // remote demo
 		{
 			sprintf(demo_file_path, "%s/global/jumpdemo/%s_%d.%s", tgame->string, level.mapname, sorted_remote_map_best_times[i].id, sorted_remote_map_best_times[i].server);			
 		}
@@ -465,9 +489,43 @@ void Load_Remote_Recordings(int index_from)
 		//load replay into it's respective slot
 		fread(level_items.recorded_time_data[MAX_HIGHSCORES + (i+1)], 1, lSize, f);		
 		level_items.recorded_time_frames[MAX_HIGHSCORES + (i+1)] = lSize / sizeof(record_data);	
-		fclose(f);
+		fclose(f);		
 	}
 
+}
+
+/*
+==============================
+Purge_Remote_Recordings
+
+Delete all downloaded demos for current map (called at mapchange intermission)
+===
+*/
+void Purge_Remote_Recordings()
+{
+	if (gset_vars->global_integration_enabled == 0)
+		return; // global is disabled
+	   
+	cvar_t *tgame;	
+	char demo_file_path[384];	
+	int i;		
+	tgame = gi.cvar("game", "", 0);		
+
+	if (gset_vars->global_replay_max>MAX_REMOTE_REPLAYS)
+		return; // above max limit, exit
+		
+	for (i=0; i<gset_vars->global_replay_max; i++)
+	{		
+		if (strcmp(sorted_remote_map_best_times[i].server, gset_vars->global_localhost_name)==0) // local demo
+		{
+			continue;
+		} 
+		else if (sorted_remote_map_best_times[i].time >0.0001) // remote demo
+		{
+			sprintf(demo_file_path, "%s/global/jumpdemo/%s_%d.%s", tgame->string, level.mapname, sorted_remote_map_best_times[i].id, sorted_remote_map_best_times[i].server);
+			remove(demo_file_path); // maybe add an option to keep the files
+		}
+	}
 }
 
 /*
@@ -546,33 +604,54 @@ Download_Remote_Users_Files
 
 Download remote user.t files
 Only called once on initial server startup (via g_save.c)
-The admin command "loadglobalusers" will also invoke this
+The admin command "syncglobaldata" will also invoke this
 ==============================
 */
 void Download_Remote_Users_Files()
 {
-	int i;	
-	cvar_t	*tgame;
-	char rusers_file[128];	
-	char url[128];	    	
-	tgame = gi.cvar("game", "", 0);	
+	// check if global integration is enabled
+	if (gset_vars->global_integration_enabled == 0)
+		return;
 
-	if (gset_vars->global_integration_enabled == 0) {
-		return; // global is disabled
-	}
+	// vars
+	struct http_get_struct args[MAX_REMOTE_HOSTS];
+	pthread_t tid[MAX_REMOTE_HOSTS];
+	cvar_t	*tgame;
+	int i;	
+	int j;
+	int tcount = 0;
+	tgame = gi.cvar("game", "", 0);
+
+	// init curl	
+	curl_global_init(CURL_GLOBAL_ALL);
 
 	for (i=0;i<MAX_REMOTE_HOSTS;i++)
-	{		
-		// perform some validations first		
+	{	
+		// perform some validations first	
 		if (strlen(pGlobalHostName[i]) < 1 || strcmp(pGlobalHostName[i],"default") ==0 || strlen(pGlobalHostUrl[i]) <12)
 		 	continue;
-		
-		sprintf (rusers_file, "%s/global/maptimes/users.t.%s", tgame->string,pGlobalHostName[i]);		
-		sprintf (url,"%s/%d/users.t",pGlobalHostUrl[i],*pGlobalHostPort[i]);		
-
-		//Download users.t file
-    	HTTP_Get_File(url,rusers_file,3);
+		{
+			sprintf(args[i].url, "%s/%d/users.t",pGlobalHostUrl[i],*pGlobalHostPort[i]);
+			sprintf(args[i].filename, "%s/global/maptimes/users.t.%s", tgame->string,pGlobalHostName[i]);
+			if (tcount == gset_vars->global_threads_max)
+			{
+				for (j = 0; j< tcount; j++)
+					{
+    					pthread_join(tid[j], NULL); // close threads
+  					}
+				tcount=0;
+			}
+			pthread_create(&tid[tcount],NULL,HTTP_Get_File_MT,(void *)&args[i]);
+			tcount++;
+		}
 	}
+	/* now wait for all threads to terminate */
+  	for(i = 0; i< tcount; i++)
+	{
+    	pthread_join(tid[i], NULL);		
+  	}
+  	curl_global_cleanup();
+  	return;
 }
 
 /*
@@ -581,7 +660,7 @@ Load_Remote_Users_Files
 
 Load the downloaded users files into array
 Only called once on initial server startup (via g_save.c)
-The admin command "loadglobalusers" will also invoke this
+The admin command "syncglobaldata" will also invoke this
 ==============================
 */
 void Load_Remote_Users_Files()
@@ -591,7 +670,8 @@ void Load_Remote_Users_Files()
 	int j;
 	cvar_t *tgame;
 	char rusers_file[128];	
-	tgame = gi.cvar("game", "", 0);	
+	tgame = gi.cvar("game", "", 0);
+
 
 	if (gset_vars->global_integration_enabled ==0) {
 		return; // disabled
@@ -627,6 +707,7 @@ Load_Remote_Maptimes
 
 Loads all remote maptimes into a 2d array
 Only called on map load (via g_spawn.c)
+or by admin command: "syncglobaldata"
 ==============================
 */
 void Load_Remote_Maptimes(char *mapname)
@@ -670,6 +751,7 @@ void Load_Remote_Maptimes(char *mapname)
 		if (ftell(f) == 0)
 		{ //if file is empty.			
 			fclose(f);
+			remove(rmap_file);
 			continue;
 		}
 		else
@@ -697,11 +779,11 @@ void Load_Remote_Maptimes(char *mapname)
     	}
 		// load file	
 		while (fscanf(f, "%s %f %d %d", rdate, &rmaptime, &ruid, &rcompletions) != EOF)
-		{	
+		{
 			strcpy(remote_map_best_times[i][j].date, rdate);
 			remote_map_best_times[i][j].time = rmaptime;
 			remote_map_best_times[i][j].id = ruid;
-			remote_map_best_times[i][j].completions = rcompletions;		
+			remote_map_best_times[i][j].completions = rcompletions;
 			for (k = 0; k < MAX_USERS; k++)
 			{
 				if (ruid == remote_users[i][k].id)
@@ -714,9 +796,10 @@ void Load_Remote_Maptimes(char *mapname)
 			if (j == MAX_HIGHSCORES)
 			{
 				break; // hit max times, break while loop
-			}	
+			}
 		}
 		fclose(f);
+		remove(rmap_file); // maybe add option to keep these files?
 	}
 }
 
@@ -809,9 +892,10 @@ void Sort_Remote_Maptimes()
 	float time;
 	char name[64];
 	int id;
-	char url[256];	
+	char url[256];
 	char date[9];
-	char server[256];				
+	char server[256];
+	int completions;
 	int size=((MAX_HIGHSCORES * MAX_REMOTE_HOSTS) + MAX_HIGHSCORES);
 		
 	// clear the sorted array
@@ -822,18 +906,19 @@ void Sort_Remote_Maptimes()
 	{
 		for (j = 0; j < MAX_HIGHSCORES; j++)
 		{
-			if (remote_map_best_times[i][j].time > 0)
+			if (remote_map_best_times[i][j].time > 0 && strlen(remote_map_best_times[i][j].name) >0)
 			{
 				sorted_remote_map_best_times[index].id = remote_map_best_times[i][j].id;
 				strcpy(sorted_remote_map_best_times[index].name, remote_map_best_times[i][j].name);
-				sorted_remote_map_best_times[index].time = remote_map_best_times[i][j].time;		
+				sorted_remote_map_best_times[index].time = remote_map_best_times[i][j].time;
 				strcpy(sorted_remote_map_best_times[index].date, remote_map_best_times[i][j].date);
+				sorted_remote_map_best_times[index].completions = remote_map_best_times[i][j].completions;
 				strcpy(sorted_remote_map_best_times[index].server, pGlobalHostName[i]);
 				strcpy(sorted_remote_map_best_times[index].replay_host_url, pGlobalHostUrl[i]);
 				index++;
 			}
 			else
-				break; // time not >0 so exit inner for loop									
+				break; // time not >0 or name not known, so exit inner for loop									
 		}
 	}
 
@@ -844,9 +929,10 @@ void Sort_Remote_Maptimes()
 		{		
 			strcpy(sorted_remote_map_best_times[index].name, level_items.stored_item_times[i].owner);					
 			sorted_remote_map_best_times[index].id = level_items.stored_item_times[i].uid;
-			sorted_remote_map_best_times[index].time = level_items.stored_item_times[i].time;					
+			sorted_remote_map_best_times[index].time = level_items.stored_item_times[i].time;
+			sorted_remote_map_best_times[index].completions = tourney_record[i].completions;
 			strcpy(sorted_remote_map_best_times[index].date,level_items.stored_item_times[i].date);			
-			strcpy(sorted_remote_map_best_times[index].server,gset_vars->global_localhost_name);
+			strcpy(sorted_remote_map_best_times[index].server,gset_vars->global_localhost_name);					
 			index++;		
 		}
 		else
@@ -865,6 +951,7 @@ void Sort_Remote_Maptimes()
 					//use tmp vars then shift positions
 					id = sorted_remote_map_best_times[i].id;
 					time = sorted_remote_map_best_times[i].time;
+					completions = sorted_remote_map_best_times[i].completions;
 					strcpy(name, sorted_remote_map_best_times[i].name);
 					strcpy(date, sorted_remote_map_best_times[i].date);
 					strcpy(server, sorted_remote_map_best_times[i].server);
@@ -872,6 +959,7 @@ void Sort_Remote_Maptimes()
 					//now do the swapping!
 					sorted_remote_map_best_times[i].id = sorted_remote_map_best_times[i+1].id;
 					sorted_remote_map_best_times[i].time = sorted_remote_map_best_times[i+1].time;
+					sorted_remote_map_best_times[i].completions = sorted_remote_map_best_times[i+1].completions;
 					strcpy(sorted_remote_map_best_times[i].name, sorted_remote_map_best_times[i+1].name);
 					strcpy(sorted_remote_map_best_times[i].date, sorted_remote_map_best_times[i+1].date);
 					strcpy(sorted_remote_map_best_times[i].server, sorted_remote_map_best_times[i+1].server);
@@ -879,6 +967,7 @@ void Sort_Remote_Maptimes()
 					//swap part 2...
 					sorted_remote_map_best_times[i+1].id = id;
 					sorted_remote_map_best_times[i+1].time = time;
+					sorted_remote_map_best_times[i+1].completions = completions;
 					strcpy(sorted_remote_map_best_times[i+1].name, name);
 					strcpy(sorted_remote_map_best_times[i+1].date, date);
 					strcpy(sorted_remote_map_best_times[i+1].server, server);
@@ -899,6 +988,7 @@ void Sort_Remote_Maptimes()
 				{					
 					sorted_remote_map_best_times[k].id = sorted_remote_map_best_times[k+1].id;
 					sorted_remote_map_best_times[k].time = sorted_remote_map_best_times[k+1].time;
+					sorted_remote_map_best_times[k].completions = sorted_remote_map_best_times[k+1].completions;
 					strcpy(sorted_remote_map_best_times[k].name, sorted_remote_map_best_times[k+1].name);
 					strcpy(sorted_remote_map_best_times[k].date, sorted_remote_map_best_times[k+1].date);
 					strcpy(sorted_remote_map_best_times[k].server, sorted_remote_map_best_times[k+1].server);
@@ -971,60 +1061,120 @@ void Print_Sorted_Maptimes(edict_t* ent)
 ==============================
 Print_Remote_Maptimes
 
-** Disabled - Might implement again to show individual remote server maptimes...
 Print the remote maptimes for requested remote server
 ==============================
 */
-void Print_Remote_Maptimes(edict_t* ent)
+void Print_Remote_Maptimes(edict_t* ent, char *server)
 {
 	int i;
 	int j;
-	char temp[128];
 	char txt[1024];
-	
-	strncpy(temp, gi.argv(1), sizeof(temp) - 1);
+	char this_name[64];
+	char wr_txt[16];	
+	int localfound=0;
+	int rows_printed=0;
 
+	if (gset_vars->global_integration_enabled ==0)
+	{
+		gi.cprintf(ent, PRINT_HIGH, "Global Integration is disabled on this server\n");
+		return;
+	}
+
+	// check if there's any local times
+	//if (maplist.times[level.mapnum][0].time > 0)
+	if (tourney_record[0].time > 0)
+		localfound=1;
+
+	//prep fancy font
+	Com_sprintf(wr_txt, sizeof(wr_txt), "wr");
+	
 	for (i = 0; i < MAX_REMOTE_HOSTS; i++)
 	{
-		if (strcmp(temp, pGlobalHostName[i]) == 0 || atoi(temp) == (i + 1))
+		if (strcmp(server, pGlobalHostName[i]) == 0 || atoi(server) == (i + 2))
 		{
 			if (remote_map_best_times[i][0].time == 0)
 			{
-				gi.cprintf (ent, PRINT_HIGH,"No times found for remote server %s\n", pGlobalHostName[i]);				
-				return;		
+				gi.cprintf (ent, PRINT_HIGH,"No times found for remote server %s\n", pGlobalHostName[i]);		
+				return;
 			}
 			else
-			{
-				gi.cprintf(ent, PRINT_HIGH, "---------------------------------------------------------\n");
+			{							
+				gi.cprintf(ent, PRINT_HIGH, "-------------------------------------------------------------\n");
 				gi.cprintf(ent, PRINT_HIGH, "Best Times for %s (%s)\n", level.mapname, pGlobalHostName[i]);
-				gi.cprintf(ent, PRINT_HIGH, "\xce\xef\xae \xce\xe1\xed\xe5               \xc4\xe1\xf4\xe5        \xd4\xe9\xed\xe5       \xc3\xef\xed\xf0\xec\xe5\xf4\xe9\xef\xee\xf3\n"); // No. Name Date Time Completions
+				gi.cprintf(ent, PRINT_HIGH, "\xce\xef\xae     \xce\xe1\xed\xe5               \xc4\xe1\xf4\xe5        \xd4\xe9\xed\xe5       \xc3\xef\xed\xf0\xec\xe5\xf4\xe9\xef\xee\xf3\n"); // No. Name Date Time Completions
 
+				// print the top 15 records
 				for (j = 0; j < MAX_HIGHSCORES; j++)
 				{
 					if (remote_map_best_times[i][j].time == 0)
 						break;
-					gi.cprintf(ent, PRINT_HIGH, "%-3d %-18s %8s    %-9.3f  %-d\n", j + 1, remote_map_best_times[i][j].name, remote_map_best_times[i][j].date, remote_map_best_times[i][j].time, remote_map_best_times[i][j].completions);
+
+					// highlight connected user
+					Com_sprintf(this_name, sizeof(this_name), remote_map_best_times[i][j].name);
+					Highlight_Name(this_name);
+					if (remote_map_best_times[i][j].time == sorted_remote_map_best_times[0].time) //wr time
+					{						
+						gi.cprintf(ent, PRINT_HIGH, "%-3d (%s)%-18s %8s    %-9.3f  %d\n", 1, HighAscii(wr_txt), this_name, remote_map_best_times[i][j].date, remote_map_best_times[i][j].time, remote_map_best_times[i][j].completions);						
+					}
+					else
+						gi.cprintf(ent, PRINT_HIGH, "%-3d     %-18s %8s    %-9.3f  %d\n", j + 1, this_name, remote_map_best_times[i][j].date, remote_map_best_times[i][j].time, remote_map_best_times[i][j].completions);
 				}
 
-				gi.cprintf(ent, PRINT_HIGH, "---------------------------------------------------------\n");
+				gi.cprintf(ent, PRINT_HIGH, "-------------------------------------------------------------\n");
 				return;
 			}
 		}
 	}
+	
+	// no user arg, print usage and overview stats:	
+	gi.cprintf(ent, PRINT_HIGH, "------------------ ");
+	Com_sprintf(txt, sizeof(txt), "Global Maptimes Summary");
+	gi.cprintf(ent, PRINT_HIGH, "%s", HighAscii(txt));
+	gi.cprintf(ent, PRINT_HIGH, " ------------------\n");
+	gi.cprintf(ent, PRINT_HIGH, "Map: %s\n\n",level.mapname);
+	//gi.cprintf(ent, PRINT_HIGH, "ID  Server    Top Player         Date        Time      Compl.\n");
+	gi.cprintf(ent, PRINT_HIGH, "\xc9\xc4  \xd3\xe5\xf2\xf6\xe5\xf2    \xd4\xef\xf0 \xd0\xec\xe1\xf9\xe5\xf2         \xc4\xe1\xf4\xe5        \xd4\xe9\xed\xe5      \xc3\xef\xed\xf0\xec\xae\n");
+	//gi.cprintf(ent, PRINT_HIGH, "--- ------    ----------         ----        ----      ------\n");
 
-	// no user arg, print usage:
-	gi.cprintf(ent, PRINT_HIGH, "------------------------------------------\n");
-	Com_sprintf(txt, sizeof(txt), "ID  Server");
-	gi.cprintf(ent, PRINT_HIGH, "%s\n", HighAscii(txt));
+	// print best local time first, if any
+	rows_printed++;
+	if (localfound)
+	{
+		Com_sprintf(this_name, sizeof(this_name), level_items.stored_item_times[0].owner);
+		//if (maplist.times[level.mapnum][0].time == sorted_remote_map_best_times[0].time) // wr time
+		if (level_items.stored_item_times[0].time == sorted_remote_map_best_times[0].time)
+		{
+			//gi.cprintf(ent, PRINT_HIGH, "<%1d> %-6s(%s)%-18s %8s    %-9.3f %d\n", rows_printed, gset_vars->global_localhost_name, HighAscii(wr_txt), this_name, maplist.times[level.mapnum][0].date, maplist.times[level.mapnum][0].time, maplist.times[level.mapnum][0].completions);
+			gi.cprintf(ent, PRINT_HIGH, "<%1d> %-6s(%s)%-18s %8s    %-9.3f %d\n", rows_printed, gset_vars->global_localhost_name, HighAscii(wr_txt), this_name, level_items.stored_item_times[0].date, level_items.stored_item_times[0].time, tourney_record[0].completions);
+		}
+		else
+			//gi.cprintf(ent, PRINT_HIGH, "<%1d> %-9s %-18s %8s    %-9.3f %d\n", rows_printed, gset_vars->global_localhost_name, this_name, maplist.times[level.mapnum][0].date, maplist.times[level.mapnum][0].time, maplist.times[level.mapnum][0].completions);
+			gi.cprintf(ent, PRINT_HIGH, "<%1d> %-9s %-18s %8s    %-9.3f %d\n", rows_printed, gset_vars->global_localhost_name, this_name, level_items.stored_item_times[0].date, level_items.stored_item_times[0].time, tourney_record[0].completions);
+	}
+	else // print a blank
+		gi.cprintf(ent, PRINT_HIGH, "<%1d> %-9s %-18s %-8s    %-9s %s\n", rows_printed, gset_vars->global_localhost_name, "---", "---", "---","---");
+
+	// now print the best time for each remote server	
 	for (i = 0; i < MAX_REMOTE_HOSTS; i++)
 	{
-		if (remote_map_best_times[i][0].time != 0)
+		if (remote_map_best_times[i][0].time > 0)
 		{
-			gi.cprintf(ent, PRINT_HIGH, "%d.  %s\n", i + 1, pGlobalHostName[i]);
+			rows_printed++;
+			if (remote_map_best_times[i][0].time == sorted_remote_map_best_times[0].time) // wr time
+			{
+				gi.cprintf(ent, PRINT_HIGH, "<%1d> %-6s(%s)%-18s %8s    %-9.3f %d\n", rows_printed, pGlobalHostName[i], HighAscii(wr_txt), remote_map_best_times[i][0].name, remote_map_best_times[i][0].date, remote_map_best_times[i][0].time, remote_map_best_times[i][0].completions);
+			}
+			else
+				gi.cprintf(ent, PRINT_HIGH, "<%1d> %-9s %-18s %8s    %-9.3f %d\n", rows_printed, pGlobalHostName[i], remote_map_best_times[i][0].name, remote_map_best_times[i][0].date, remote_map_best_times[i][0].time, remote_map_best_times[i][0].completions);
+		}
+		else if (strcmp(pGlobalHostName, "default") != 0) // print a blank
+		{
+			rows_printed++;
+			gi.cprintf(ent, PRINT_HIGH, "<%1d> %-9s %-18s %-8s    %-9s %s\n", rows_printed, pGlobalHostName[i], "---", "---", "---", "---");
 		}
 	}
-	gi.cprintf(ent, PRINT_HIGH, "\nUsage: rmaptimes <server id>|<server name>\n");
-	gi.cprintf(ent, PRINT_HIGH, "------------------------------------------\n");
+	gi.cprintf(ent, PRINT_HIGH, "\nUsage: maptimes (g)lobal <server id>|<server name>\n");
+	gi.cprintf(ent, PRINT_HIGH, "-------------------------------------------------------------\n");
 	return;
 }
 
@@ -1041,7 +1191,7 @@ void Cmd_Remote_Replay(edict_t *ent, int num)
 		
 	if (gset_vars->global_integration_enabled == 0 || gset_vars->global_replay_max <=0)
 	{
-		gi.cprintf(ent, PRINT_HIGH, "Global replays are disabled on this server\n");
+		gi.cprintf(ent, PRINT_HIGH, "Global Integration is disabled on this server\n");
 		return;
 	}
 
@@ -1170,7 +1320,162 @@ void Display_Global_Scoreboard()
 			blanks++;
 		}
 	}
-	sprintf(string+strlen(string), "xv 50 yv %d string \"replay|race|maptimes [global][#]\" ", blanks*10+24);
+	sprintf(string+strlen(string), "xv 40 yv %d string \"replay|race|maptimes (g)lobal <#>\" ", blanks*10+24);
 	gi.WriteByte(svc_layout);
 	gi.WriteString(string);
+}
+
+// DUAL SCOREBOARD!!
+void Display_Dual_Scoreboards ()
+{
+	
+	// Vars Local Board
+	char string[2800];
+	int i;
+	int completions = 0;
+	int total_count = 0;
+	char chr[2];	
+	char colorstring[16];
+	*string = 0;
+	chr[0] = 13;
+	chr[1] = 0;
+
+	// vars Global Board	
+	char gblstring[1400];
+	int gbli;	
+	char gblthis_name[64];
+	char gblchr[2];
+	char gblcolorstring[16];
+	*gblstring = 0;
+	gblchr[0] = 13;
+	gblchr[1] = 0;
+	int gblrows_printed = 0;
+	int gblshow_replay = 0;
+	int gblblanks =0;
+
+	// Local Board
+	sprintf(string + strlen(string), "xv -230 yv -16 string2 \"----------  Local Scoreboard  ----------\" ");
+	sprintf(string+strlen(string), "yv 0 string2 \"No   Player          Time      Date \" ");
+	for (i=0;i<MAX_HIGHSCORES;i++)
+	{
+		
+		sprintf(colorstring,"string");
+		if (level_items.stored_item_times[i].name[0])
+		{
+				if (level_items.stored_item_times[i].fresh)
+				{
+					
+					sprintf(string+strlen(string), "yv %d %s \"%2d%s *%-16s%-9.3f %-s\" ", i*10+16,colorstring,i+1,(level_items.recorded_time_frames[i] == 0 ? " " : chr),
+						level_items.stored_item_times[i].owner,level_items.stored_item_times[i].time
+						,level_items.stored_item_times[i].date
+						);
+				} else {
+					sprintf(string+strlen(string), "yv %d %s \"%2d%s  %-16s%-9.3f %-s\" ", i*10+16,colorstring,i+1,(level_items.recorded_time_frames[i] == 0 ? " " : chr),
+						level_items.stored_item_times[i].owner,level_items.stored_item_times[i].time
+						,level_items.stored_item_times[i].date
+						);
+				}
+		} else {
+			sprintf(string+strlen(string), "yv %d string \"%2d \" ", i*10+16,i+1);
+		}
+	}	
+
+	// Global Board		
+	sprintf(gblstring + strlen(gblstring), "xv 170 yv -16 string2 \"------------  Global Scoreboard  ------------\" ");
+	sprintf(gblstring + strlen(gblstring), "yv 0 string2 \"No  Player           Time     Date     Server\" ");
+
+	for (gbli = 0; gbli < MAX_HIGHSCORES; gbli++)
+	{
+		if (sorted_remote_map_best_times[gbli].time < 0.0001 || strlen(sorted_remote_map_best_times[gbli].name) <1)
+			continue;
+
+		sprintf(gblcolorstring, "string");				
+		if (sorted_remote_map_best_times[gbli].time > 0.0001)
+		{
+			Com_sprintf(gblthis_name, sizeof(gblthis_name), sorted_remote_map_best_times[gbli].name);
+			Highlight_Name(gblthis_name);
+
+			if (gbli < gset_vars->global_replay_max)
+			{
+				if (level_items.recorded_time_frames[MAX_HIGHSCORES + (gbli+1)])
+					gblshow_replay=1;
+			}
+			sprintf(gblstring + strlen(gblstring), "yv %d %s \"%2d%s %-17s%-9.3f%-8s %-s\" ", (gblrows_printed) * 10 + 16, gblcolorstring, gblrows_printed + 1,
+					(gblshow_replay == 0 ? " " : gblchr),gblthis_name, sorted_remote_map_best_times[gbli].time, sorted_remote_map_best_times[gbli].date, sorted_remote_map_best_times[gbli].server);			
+			gblrows_printed++;
+			gblshow_replay=0;
+		}											
+		if (gblrows_printed == MAX_HIGHSCORES)
+			break;
+	}
+
+	// print the blank rows...
+	gblblanks = gblrows_printed;
+	if (gblrows_printed < MAX_HIGHSCORES)
+	{	
+		for (gbli = 0; gbli < (MAX_HIGHSCORES - gblrows_printed); gbli++)
+		{
+			sprintf(gblstring + strlen(gblstring), "yv %d string \"%2d\" ", (gblblanks) * 10 + 16, gblblanks + 1);
+			gblblanks++;
+		}
+	}	
+
+	// join both boards
+	strcat(string,gblstring);
+
+	//display this sucker!
+	gi.WriteByte(svc_layout);
+	gi.WriteString(string);
+}
+
+void save_global_scoreboard() // not used
+{	
+
+	FILE *f;
+	int i;
+	char buffer[1024];
+	cvar_t *tgame;
+	tgame = gi.cvar("game", "", 0);
+
+	// current date stuff
+	char filename[128];
+	char curdate[32];
+	struct tm *to;
+	time_t t;
+	t = time(NULL);
+	to = localtime(&t);
+	strftime(curdate, sizeof(curdate), "%Y%m%d", to);
+
+	// write the wr file to fs
+	sprintf(filename, "%s/global/maptimes/wr/%s.wr.%s.local", tgame->string, level.mapname, curdate);
+	f = fopen(filename, "wb");
+	if (!f)
+	{
+		sprintf(filename, "%s/global/maptimes/wr/%s.wr.%s.local.safe", tgame->string, level.mapname, curdate);
+		f = fopen(filename, "wb");
+		if (!f)
+			return NULL;
+	}
+		
+	// file header
+	fprintf(f, "Pos. Name Date Completions Time Server\n");
+	for (i = 0; i < MAX_HIGHSCORES; i++)
+	{
+		if (sorted_remote_map_best_times[i].time > 0.0001)
+		{
+			Com_sprintf(buffer, sizeof(buffer), "%d %s %s %d %9.3f %s", i+1, sorted_remote_map_best_times[i].name, sorted_remote_map_best_times[i].date, sorted_remote_map_best_times[i].completions, sorted_remote_map_best_times[i].time, sorted_remote_map_best_times[i].server);
+			fprintf(f, "%s\n", buffer);
+		}
+	}
+
+	fclose(f);
+}
+
+void delete_global_scoreboard(char *rec_date) // not used
+{
+	cvar_t *tgame;
+	tgame = gi.cvar("game", "", 0);
+	char filename[128];
+	sprintf(filename, "%s/global/maptimes/wr/%s.wr.%s.local", tgame->string, level.mapname, rec_date);
+	remove(filename);
 }

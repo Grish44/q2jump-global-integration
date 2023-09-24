@@ -912,8 +912,7 @@ debug_log(text);
 	{				
 		Download_Remote_Maptimes(level.mapname);
 		Load_Remote_Maptimes(level.mapname);
-		Sort_Remote_Maptimes();
-		//Download_Remote_Recordings();
+		Sort_Remote_Maptimes();		
 		Download_Remote_Recordings_MT(level.mapname);
 		//Download_Remote_Recordings_NB();
 		Load_Remote_Recordings(0); // start from position 0 == load them all

@@ -70,6 +70,11 @@ cvar_t	*flood_msgs;
 cvar_t	*flood_persecond;
 cvar_t	*flood_waitdelay;
 
+//flood protection throwup, addball etc.
+cvar_t	*flood_msgs_other;
+cvar_t	*flood_persecond_other;
+cvar_t	*flood_waitdelay_other;
+
 cvar_t	*sv_maplist;
 
 void SpawnEntities (char *mapname, char *entities, char *spawnpoint);
@@ -869,7 +874,6 @@ void G_RunFrame (void)
 	char *time_str;		// hann
 	cvar_t  *port;		// hann
 	time_t	cmd_time;
-
 
 	// hann: Print a timestamp to the console every 10 mins like OSP tourney does.
 	// hann: Can be useful if logging is turned on - the timestamp appears in qconsole.log

@@ -1,7 +1,5 @@
 #include "g_local.h"
 #include "g_wireplay.h"
-#include "g_german.h"
-#include "g_crikey.h"
 #include "global.h"
 #ifdef _WIN32
 #include <windows.h>
@@ -39,9 +37,8 @@ static char *help_main[] = {
 		"\n\xc7\xe5\xee\xe5\xf2\xe1\xec \xc3\xef\xed\xed\xe1\xee\xe4\xf3\n", // General Commands
         "hook - bind a key to +hook in order to use\n",
         "cmsg - enable/disable messages triggered in the map\n",
-		"replay - view a replay (1-15, now)\n",
-		"replay global - view a global replay (1-15)\n"	
-		"race - race against a replay (1-15, now, global)\n",
+		"replay - view a replay (1-15, now, list)\n",		
+		"race - race against a replay (1-15, now)\n",		
         "jumpers - turn on or off player models\n",
         "cpsound - turn on or off checkpoint sounds\n",
         "showtimes - turn on or off displaying all times\n",
@@ -54,11 +51,8 @@ static char *help_main[] = {
         "playerlist - list the players in game\n",
         //"\nÓôáôéóôéãó\n",
 		"\n\xd3\xf4\xe1\xf4\xe9\xf3\xf4\xe9\xe3\xf3\n", // Statistics
-        "maptimes - view best times on a map\n",
-		"maptimes global - view top 30 global times\n"
-		"maptimeswp - view legacy best time on a map from wireplay\n",
-		//"maptimesger - view best time on a map from .german\n",		
-		//"maptimescrikey - view legacy best time on a map from Crikey!\n",		
+        "maptimes - view best times on a map\n",		
+		"maptimeswp - view legacy best time on a map from wireplay\n",	
         "playertimes - view overall points in the server\n",
         "playerscores - view best points per map players\n",
         "playermaps - view the players who have done the most maps\n",
@@ -68,6 +62,10 @@ static char *help_main[] = {
         "compare - compare yourself to another player\n",
         "1st - view first places set in the last 24 hours\n",
         "!seen - view when a player was last in the server\n",
+		"\n\xc7\xec\xef\xe2\xe1\xec \xc3\xef\xed\xed\xe1\xee\xe4\xf3\n", // Global Commands
+		"replay (g)lobal - view a global replay (1-15)\n"
+		"race (g)lobal - race against a global replay (1-15)\n"
+		"maptimes (g)lobal - view best times from a remote server (id|name)\n"		
         "--------------------------------------------------\n\n",
         NULL
 };
@@ -781,6 +779,21 @@ zbotcmd_t zbotCommands[] =
     CMDTYPE_STRING,
     &gset_vars->global_ents_url,
   },
+  {
+	0,1,0,
+	"global_map_downloads",
+	CMDWHERE_CFGFILE | CMD_GSET, 
+    CMDTYPE_NUMBER,
+    &gset_vars->global_map_downloads,
+  },
+  {
+	0,0,0,
+	"global_map_url",
+	CMDWHERE_CFGFILE | CMD_GSET, 
+    CMDTYPE_STRING,
+    &gset_vars->global_map_url,
+  },
+
   {
 	0,0,0,
 	"global_localhost_name",
@@ -1920,43 +1933,17 @@ void Cmd_Show_Maptimes_Wireplay(edict_t* ent)
         return;
     }
 }
-void Cmd_Show_Maptimes_German(edict_t* ent)
-{
-    if (gi.argc() < 2)
-    {
-                print_german_time(ent, level.mapname);
-                return;
-    }
-    else
-    {
-        print_german_time(ent, gi.argv(1));
-        return;
-    }
-}
-void Cmd_Show_Maptimes_Crikey(edict_t* ent)
-{
-    if (gi.argc() < 2)
-    {
-                print_crikey_time(ent, level.mapname);
-                return;
-    }
-    else
-    {
-        print_crikey_time(ent, gi.argv(1));
-        return;
-    }
-}
-
 
 void ShowMapTimes(edict_t *ent) 
 { 
 	int i; 
 	int mapnum;
-	char	temp[128];
+	char temp[128];
+	//char temp2[128];
 	char name[32];
 	int index;
 	float time;
-	mapnum = -1;
+	mapnum = -1;	
 
 	//if no args, show current map
 	if (gi.argc() < 2) {
@@ -1967,9 +1954,18 @@ void ShowMapTimes(edict_t *ent)
 
 	// maptimes global
 	strncpy(temp,gi.argv(1),sizeof(temp)-1);
-	if (strcmp(temp,"global")==0)
-	{
-		Print_Sorted_Maptimes(ent);
+	//strncpy(temp2,gi.argv(2),sizeof(temp2)-1);
+
+	if ((strcmp(temp,"global")==0) || (strcmp(temp,"g")==0))
+	{	
+		// user asked for global 1 which is local server
+		if (strcmp(gi.argv(2),"1")==0 || strcmp(gi.argv(2),gset_vars->global_localhost_name)==0)
+		{
+			mapnum = level.mapnum;
+			goto def;
+		}
+					
+		Print_Remote_Maptimes(ent,gi.argv(2));
 		return;
 	}
 
@@ -2005,12 +2001,12 @@ def:
 	{
 		UpdateThisUsersUID(ent,ent->client->pers.netname);
 	}
-	if (ent->client->resp.uid && !overall_completions[index].loaded)
+	/* if (ent->client->resp.uid && !overall_completions[index].loaded)
 	{
 		write_tourney_file(level.mapname,level.mapnum);   // 084_h3
 		//open their file
 		open_uid_file(ent->client->resp.uid-1,ent);
-	}
+	} */
 	if (maplist.times[mapnum][0].time!=0)
 	{
 		gi.cprintf (ent, PRINT_HIGH, "-----------------------------------------\n"); 
@@ -2041,11 +2037,11 @@ def:
 		gi.cprintf (ent, PRINT_HIGH, "-----------------------------------------\n"); 
 	} else
 	{
-		if (mapnum == level.mapnum)
+		if (mapnum == level.mapnum && gset_vars->global_integration_enabled==1 && sorted_remote_map_best_times[0].time >0)
 		{
-			gi.cprintf (ent, PRINT_HIGH, "No Times for %s. Try \"maptimes global\"\n",maplist.mapnames[mapnum]);	
+			gi.cprintf (ent, PRINT_HIGH, "No Local Times for %s. Try \"maptimes (g)lobal\"\n",maplist.mapnames[mapnum]);			
 		} else
-			gi.cprintf (ent, PRINT_HIGH, "No Times for %s.\n",maplist.mapnames[mapnum]);
+			gi.cprintf (ent, PRINT_HIGH, "No Times for %s.\n",maplist.mapnames[mapnum]);			
 	}
 } 
 
@@ -3829,14 +3825,15 @@ void BestTimesScoreboardMessage (edict_t *ent, edict_t *killer)
 	chr[0] = 13;
 	chr[1] = 0;
 	//get total completions
-    completions = 0;
-	for (i=0;i<4096;i++)
-	{
-        if (!tourney_record[i].completions)
-			continue;
-		total_count += tourney_record[i].completions;
-        completions++;
-	}
+    // completions = 0;
+	// for (i=0; i<MAX_USERS; i++)
+	// {
+    //     if (!tourney_record[i].completions)
+	// 		continue;
+	// 	total_count += tourney_record[i].completions;
+    //     completions++;
+	// }	
+	sprintf(string + strlen(string), "xv 0 yv -16 string2 \"----------  Local Scoreboard  ----------\" ");
 	sprintf(string+strlen(string), "xv 0 yv 0 string2 \"No   Player          Time      Date \" ");
 	for (i=0;i<MAX_HIGHSCORES;i++)
 	{
@@ -3866,7 +3863,7 @@ void BestTimesScoreboardMessage (edict_t *ent, edict_t *killer)
 			sprintf(string+strlen(string), "yv %d string \"%2d \" ", i*10+16,i+1);
 		}
 	}
-	sprintf(string+strlen(string), "yv %d string \"    %d players completed map %d times\" ", i*10+24,completions,total_count);
+	//sprintf(string+strlen(string), "yv %d string \"    %d players completed map %d times\" ", i*10+24,completions,total_count);
 	gi.WriteByte (svc_layout);
 	gi.WriteString (string);
 }
@@ -4858,6 +4855,11 @@ void Replay_Recording(edict_t *ent)
 		ent->client->ps.pmove.pm_type = PM_FREEZE;
 		ent->viewheight = 0;
 		ent->client->ps.pmove.pm_flags |= PMF_NO_PREDICTION;
+		// 1.35ger (next 4 lines)
+		// trigger_push or anything that potentially modifies player's velocity
+		// will screw up the view on the client.
+		VectorClear(ent->velocity);
+		VectorClear(ent->client->oldvelocity);
 
 		//need to get fraction and whole value of replay_frame
 
@@ -5181,7 +5183,7 @@ void List_Admin_Commands(edict_t *ent)
 		if (i == aset_vars->ADMIN_MSET_LEVEL)
 			gi.cprintf(ent,PRINT_HIGH,"mset ");
 		if (i == aset_vars->ADMIN_GSET_LEVEL)
-			gi.cprintf(ent,PRINT_HIGH,"gset loadglobalusers "); // download global user.t files and load them
+			gi.cprintf(ent,PRINT_HIGH,"gset syncglobaldata "); // downloads all global files and reloads them!
 		if (i == aset_vars->ADMIN_IP_LEVEL)
 			gi.cprintf(ent,PRINT_HIGH,"whois ");
 		if (i == aset_vars->ADMIN_BAN_LEVEL)
@@ -5450,9 +5452,13 @@ void remtimes(edict_t *ent)
 
 	write_tourney_file(level.mapname,level.mapnum);
 
-	Sort_Remote_Maptimes(); // reload the global stuff
-	Load_Remote_Recordings(0); // reload all global replays
-	
+	// update the global board
+	if (gset_vars->global_integration_enabled)
+	{
+		Sort_Remote_Maptimes();
+		Load_Remote_Recordings(0); // reload all global replays
+	}
+
 	gi.cprintf(ent,PRINT_HIGH,"Times removed.\n");
 }
 
@@ -6572,9 +6578,11 @@ void SetDefaultValues(void)
 	// host: Name/label of the remote server (can be anything you like) ie. "kex" or "german"
 	// url needs to point to the base quake2 dir of the remote server, no trailing slash
 	// url example: "http://1.2.3.4/quake2/jump"
-	gset_vars->global_integration_enabled = 0; // change to 1 to enable rreplay features (load remote replays via http on map spawn)
+	gset_vars->global_integration_enabled = 0; // change to 1 to enable global integration
 	gset_vars->global_ents_sync = 0; // warning, this will replace any local jump/ents and jump/mapsent files from global_ents_url
 	strcpy(gset_vars->global_ents_url,""); // url to remote jump dir (will get files from jump/ent and jump/mapsent)
+	gset_vars->global_map_downloads = 0; // set to 1 to download maps via the addmaps command, uses the global_map_url
+	strcpy(gset_vars->global_map_url,""); // url that hosts the mapname.bsp files	
 	strcpy(gset_vars->global_localhost_name,localhost_name->string); // you can give your local server a diff name on the global board
 	strcpy(gset_vars->global_name_1,"default");
 	strcpy(gset_vars->global_name_2,"default");
@@ -7491,6 +7499,7 @@ void remtime(edict_t *ent)
 	int trecid = -1;
 	int remuid;
 	edict_t *e2;
+	char global_recdate[32];
 
 	tgame = gi.cvar("game", "", 0);
 
@@ -7606,9 +7615,14 @@ void remtime(edict_t *ent)
 		}
 		gi.cprintf(ent,PRINT_HIGH,"Time %d removed.\n",remnum);
         read_top10_tourney_log(level.mapname);//fix top 15..
-        removemapfrom_uid_file(remuid);
-		Sort_Remote_Maptimes(); // refresh the global times and replays too...
-		Load_Remote_Recordings(0); // reload all global replays
+        removemapfrom_uid_file(remuid);		
+
+		// update global board
+		if (gset_vars->global_integration_enabled)
+		{
+			Sort_Remote_Maptimes();	   // refresh the global times and replays too...
+			Load_Remote_Recordings(0); // reload all global replays
+		}
 	}
 	else
 	{
@@ -9122,8 +9136,8 @@ void write_users_file(void)
 	for (i=0;i<MAX_USERS;i++)
 	{
         if(maplist.users[i].name[0]){
-            Com_sprintf(buffer,sizeof(buffer), " %i %i %i %s",i,maplist.users[i].completions,maplist.users[i].score,maplist.users[i].name);
-		    fprintf (f, "%s", buffer);
+            Com_sprintf(buffer,sizeof(buffer), "%i %i %i %s",i,maplist.users[i].completions,maplist.users[i].score,maplist.users[i].name);
+		    fprintf (f, "%s\n", buffer);
         }
 	}
 	fclose(f);
@@ -9346,17 +9360,21 @@ float add_item_to_queue(edict_t *ent, float item_time,char *owner,char *name)
 			Load_Individual_Recording(i2,level_items.stored_item_times[i2].uid);
 		}
 		// Check if its a top 15 global time, then update global scores and replays
-		for (i=0;i<MAX_HIGHSCORES; i++)
+		if (gset_vars->global_integration_enabled)
 		{
-			if (item_time<sorted_remote_map_best_times[i].time || sorted_remote_map_best_times[i].time < 0.0001)
-			{				
-				Sort_Remote_Maptimes(); // now update remote board
-				if (i < gset_vars->global_replay_max)
-					Load_Remote_Recordings(i); // now reload remote replays from this position..
-				break; //only needs to be called once for a full reload... 
+			for (i = 0; i < MAX_HIGHSCORES; i++)
+			{
+				if (item_time < sorted_remote_map_best_times[i].time || sorted_remote_map_best_times[i].time < 0.0001)
+				{
+					Sort_Remote_Maptimes(); // now update remote board
+					if (i < gset_vars->global_replay_max)
+						Load_Remote_Recordings(i); // now reload remote replays from this position..
+					// if (i==0) // wr time! Save the global board!
+					//	save_global_scoreboard(); // write to local fs
+					break; // only needs to be called once for a full reload...
+				}
 			}
 		}
-		
 	}
 
 	if (level_items.stored_item_times_count>MAX_HIGHSCORES)
@@ -9814,60 +9832,75 @@ void WriteMapList(void)
 	fclose(f);
 }
 
-void AddMap(edict_t *ent) 
+void AddMap(edict_t *ent)
 {
-	char mapname[256];
-	struct	tm *current_date;
-	time_t	time_date;
-	int		month,day,year;
-	int i;  // _h2
-	
-	if (ent->client->resp.admin<aset_vars->ADMIN_ADDMAP_LEVEL) {
-		gi.cprintf(ent,PRINT_HIGH,"You must be a level %i admin to add maps.\n", aset_vars->ADMIN_ADDMAP_LEVEL);
+	char mapname[256];	
+	int i; // _h2
+	char filename[128];
+	char url[128];
+	FILE *f;
+	cvar_t *tgame;
+	tgame = gi.cvar("game", "", 0);
+
+	if (ent->client->resp.admin < aset_vars->ADMIN_ADDMAP_LEVEL)
+	{
+		gi.cprintf(ent, PRINT_HIGH, "You must be a level %i admin to add maps.\n", aset_vars->ADMIN_ADDMAP_LEVEL);
 		return;
 	}
 
-	if (gi.argc() < 2) {
-		gi.cprintf(ent,PRINT_HIGH,"addmap <mapname> - use remmap <nr> to remove maps\n");
+	if (gi.argc() < 2)
+	{
+		gi.cprintf(ent, PRINT_HIGH, "addmap <mapname> - use remmap <nr> to remove maps\n");
 		return;
 	}
 
+	strcpy(mapname, gi.argv(1));
 
-	//set the date
-		time_date = time(NULL);                // DOS system call
-		current_date = localtime(&time_date);  // DOS system call
-	
-	strcpy(mapname,gi.argv(1));
+	// see if map is already in list  // _h2
+	for (i = 0; i < maplist.nummaps; i++)											   // _h2
+	{																				   // _h2
+		if (Q_stricmp(mapname, maplist.mapnames[i]) == 0)							   // _h2
+		{																			   // _h2
+			gi.cprintf(ent, PRINT_HIGH, "'%s' is already in the maplist!\n", mapname); // _h2
+			return;																	   // _h2
+		}																			   // _h2
+	}																				   // _h2
 
-        //see if map is already in list  // _h2
-        for (i=0;i<maplist.nummaps;i++)  // _h2
-        {  // _h2
-                if (Q_stricmp(mapname,maplist.mapnames[i])==0)  // _h2
-                {  // _h2
-			gi.cprintf(ent,PRINT_HIGH,"'%s' is already in the maplist!\n",mapname);  // _h2
-			return;  // _h2
-                }  // _h2
-        }  // _h2
+	// Check that the map file exists.   // _h2	
+	if (!ValidateMap(mapname)) // _h2
+	{
+		// try and download the map from global_ent_sync_url
+		if (gset_vars->global_map_downloads && gset_vars->global_integration_enabled)
+		{
+			gi.cprintf(ent, PRINT_HIGH, "Map not found on server, trying to download: %s.bsp from remote server...\n", mapname);
+			sprintf(filename, "%s/maps/%s.bsp", tgame->string, mapname);
+			sprintf(url, "%s/%s.bsp", gset_vars->global_map_url, mapname);
+			HTTP_Get_File(url, filename, 8);
+			// check one last time!
+			f = fopen(filename, "r");
+			if (!f) // test if the map exists in the mod/maps folder
+			{
+				gi.cprintf(ent, PRINT_HIGH, "Download failed, unable to open file '%s.bsp'!\n", mapname);
+				return;
+			}
+			fclose(f);
+			gi.cprintf(ent, PRINT_HIGH, "Map downloaded OK!\n");
+		}
+		else
+		{
+			gi.cprintf(ent, PRINT_HIGH, "Unable to open file '%s.bsp'!\n", mapname); // _h2
+			return;																	 // _h2
+		}
+	} // _h2
 
-        // Check that the map file exists.   // _h2
-	if (!ValidateMap(mapname))  // _h2
-        {  // _h2
-		gi.cprintf(ent,PRINT_HIGH,"Unable to open file '%s.bsp'!\n",mapname);  // _h2
-		return;  // _h2
-	}  // _h2
+	maplist.update[maplist.nummaps] = 0;
 
-
-
-//	sprintf (date_marker, "%i%i%i",current_date->tm_hour,current_date->tm_min,current_date->tm_sec);
-	maplist.update[maplist.nummaps] = 0;//atoi(date_marker);
-
-	strcpy(maplist.mapnames[maplist.nummaps],mapname);
+	strcpy(maplist.mapnames[maplist.nummaps], mapname);
 	maplist.gametype[maplist.nummaps] = 0;
 
 	maplist.nummaps++;
-	gi.bprintf(PRINT_HIGH,"%s has added %s to the map rotation.\n", ent->client->pers.netname, mapname);
+	gi.bprintf(PRINT_HIGH, "%s has added %s to the map rotation.\n", ent->client->pers.netname, mapname);
 	UpdateVoteMaps();
-
 }
 
 // ===================================================
@@ -11618,16 +11651,16 @@ qboolean ValidateMap (char *mapname)
 {
 	FILE* f;
 	cvar_t* tgame;
-	char* mapn;
-	
+	char* mapn;	
 	tgame = gi.cvar ("game", "", 0);
+	
 	mapn = va ("%s/maps/%s.bsp", tgame->string, mapname); // get full path for the map if
 	// it exists in the mod/maps folder
 	f = fopen (mapn, "r");
 	if (f) // test if the map exists in the mod/maps folder
 	{
 		fclose (f);
-		return true;
+		return true;		
 	}
 
 	mapn = va ("baseq2/maps/%s.bsp", mapname); // get the path to the baseq2/maps folder with
@@ -11637,8 +11670,8 @@ qboolean ValidateMap (char *mapname)
 	{
 		fclose (f);
 		return true;
-	}
-	
+	}	
+
 	return false; // it doesnt exist in the mod/maps folder or baseq2/maps folder, thus
 	// quake2 can't reach it, so return false
 }
@@ -12136,9 +12169,9 @@ void Cmd_Race (edict_t *ent)
 			race_this = MAX_HIGHSCORES;
 		else if (!strcmp(gi.argv(1),"global") || !strcmp(gi.argv(1),"g"))
 		{ // global replays 1-global_replay_max
-			if (gset_vars->global_replay_max <=0)
+			if (gset_vars->global_integration_enabled ==0 || gset_vars->global_replay_max <=0)
 			{
-				gi.cprintf(ent,PRINT_CHAT,"Global replays are disabled\n");
+				gi.cprintf(ent, PRINT_HIGH, "Global Integration is disabled on this server\n");
 				return;
 			}
 
@@ -14599,3 +14632,13 @@ void worldspawn_mset() {
 	}
 	return;
 }
+
+// get client version details
+void SilentVersionStuff(edict_t *ent) {
+        char *temp;
+        temp = gi.args();
+        if (strlen(temp) > 128)
+                return;
+        sprintf(ent->client->resp.client_version, "%s", temp);		
+}
+

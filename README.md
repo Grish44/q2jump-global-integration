@@ -5,7 +5,7 @@ Jump mod isolates the unique movement from Quake II, like strafe and double jump
 
 ***
 ### Compiling
-The code should compile using windows or linux. Included is a makefile for linux and a visual studio solution file for Windows. To compile on linux, run the makefile with gcc. To compile on Windows, visual studio with `MSVC v140 - VS 2015 C++ build tools (v14.00)` and `Windows 8.1 SDK` should work. If something is missing it should tell you. Send us a question on our [discord](https://discord.q2jump.net) if you can't get it to work.
+The code will only compile for Linux OS (x86_64 and arm64 architectures tested) by using the provided makefile. Send us/me (Grish) a question on the q2jump [discord](https://discord.q2jump.net) if you can't get it to work.
 
 ***
 ### Global Integration
@@ -28,11 +28,10 @@ The global scoreboard looks like this:
   - race against a remote time
 > **maptimes global**
   - prints the top 30 global times for current map (Note: known issue in v1.36global: not always accurate due to only using top 15 times per remote server. Fix pending)
-> **loadglobalusers** (requires admin lvl 5+)
-  - full re-fetch and processing of the users.t files from each configured remote server
-    **NOTE**: Unlike the maptimes and demo files, the users.t files are only loaded on initial server start.
-    This command can be ran if needed, but best to run very scarcely and not while someone is timing (due to potential frame blocking).
-    It can be useful on occasion when the global board appears to be missing a record/name
+> **syncglobaldata** (requires admin lvl 5+)
+  - full re-fetch and processing of the files/data from each configured remote server
+    **NOTE**: This command can be ran if needed, but best to run very scarcely and not while someone is timing (due to potential frame blocking).
+    It can be useful on occasion when the global board appears to be missing a record/name or after enabling the "global_integration_enabled" setting.
 > **poppins**
   - try it and see ;) (hint: also try with admin lvl5+)
 

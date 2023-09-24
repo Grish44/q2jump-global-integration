@@ -1,7 +1,23 @@
 /*
 Global Server Integration
 Author: Grish
-Version: 1.0
+Version: 1.45global
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+
+See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
 */
 
 #pragma once
@@ -22,11 +38,15 @@ void Download_Remote_Recordings(); // not used (in lieu of the MT version)
 void Download_Remote_Recordings_MT(char *mapname); // multi threaded downloads
 void Download_Remote_Recordings_NB(); // non blocking downloads
 void Load_Remote_Recordings(int index_from);
-void Print_Sorted_Maptimes(edict_t* ent);
-void Print_Remote_Maptimes(edict_t* ent); // not used for now...
+void Print_Sorted_Maptimes(edict_t* ent); // not using for now...
+void Print_Remote_Maptimes(edict_t* ent, char *server);
 void Update_Global_Scores(edict_t *ent, float item_time, char *owner); // not used (in lieu of reloading via files)
 void Cmd_Remote_Replay(edict_t *ent, int num);
 void Display_Global_Scoreboard ();
+//TESTING DUAL SCOREBOARD
+void Display_Dual_Scoreboards();
+void save_global_scoreboard();
+void delete_global_scoreboard(char *rec_date);
 
 // Structs
 typedef struct

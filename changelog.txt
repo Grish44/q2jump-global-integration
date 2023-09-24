@@ -1,3 +1,15 @@
+#####v1.45global##### // Grish
+- various minor bug fixes/improvements
+- improved maptimes g|global command (although still not perfect!) now lists top times from all servers as a summary, with the option to "drill" into the top 15 for any given server
+- map ent sync will now download ALL mapsent/mapname.* and ent/mapname.* files
+- added: download the map .bsp file from a nominated web-server (url) when running the admin cmd: addmap <mapname> (if the map isn't on the local FS already)
+- added: dual scoreboard (local and global) is presented at the intermission for q2pro clients (r1q2 still just shows the local due to limitations with on screen ascii chars)
+- added: boot/kick users who change their cl_maxpackets outside of: 0, 20-120 ranges (helps prevents lagged/buggy replays ala thewill33)
+- added: flood control for spamming throwup/addball abuse (which could previously result in overflowing and crashing a server!)
+- remote replay/score files are no longer kept on the FS after a map change
+- note on the version control/numbering: I maintain the source in a private repo, then occasionally sync with the public repo. Hence the major bump in version numbers..
+- see http://kex.q2jump.net/global for official q2jump global scores/ranks etc. Contact Grish if you run your own server, and would like to include your data on the website
+
 #####v1.36global##### // Grish
 -full redesign of the remote integration initiative:
 -add up to 5 remote servers for integration with local server (total 6 score sets merged and sorted)
@@ -25,9 +37,7 @@
     global_url_[1..5] "http://<kex ip>/quake2/jump"
         base url to remote jump dir for jump/<portdir> and jump/jumpdemo access (no trailing slash, default: "")
 -added "jump/global" dir to store remote times (jump/global/maptimes) and demo files (jump/global/jumpdemo)
--added admin command: "loadglobalusers" for refreshing the user.t files from all servers
-  NOTE: Unlike the maptimes and demo files, the users.t files are only loaded on initial server start
-    this command can be ran if needed, but best to run very scarcely and not while someone is timing (due to potential frame blocking)
+-added admin command: "syncglobaldata" for refreshing the data from all servers (use carefully!)
 -removed "rreplay" and "rmaptimes" commands
 -*dynamic:
   - global scoreboard will auto update during gameplay in these scenarios:
