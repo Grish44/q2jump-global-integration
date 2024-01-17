@@ -8589,23 +8589,24 @@ qboolean tourney_log(edict_t *ent,int uid, float time,char *date )
 
 				// new map, so don't show comparison
 				if (level_items.stored_item_times[0].time == 0) {
-					gi.bprintf(PRINT_HIGH, "%s finished in %1.3f seconds (", ent->client->pers.netname, time);
-					if (ent->client->pers.cp_split > 0)
-						gi.cprintf(ent, PRINT_HIGH, "split: %1.3f | ", my_split);
-					gi.bprintf(PRINT_HIGH, "1st completion on the map)\n");
-					return false;
-				}
+						sprintf(msg, "%s finished in %1.3f seconds (", ent->client->pers.netname, time);
+						if (ent->client->pers.cp_split > 0)
+							sprintf(msg + strlen(msg), "split: %1.3f | ", my_split);
+						sprintf(txt,"1st completion on the map");
+						gi.bprintf(PRINT_HIGH, "%s%s)\n", msg, HighAscii(txt));
+						return false;
+					}
 
 				// 1st comp AND 1st place
 				if (time < level_items.stored_item_times[0].time) {
-					gi.bprintf(PRINT_HIGH, "%s finished in %1.3f seconds (1st ", ent->client->pers.netname, time);
-					gi.bprintf(PRINT_CHAT, "%1.3f ", time - level_items.stored_item_times[0].time);
-					gi.bprintf(PRINT_HIGH, "| ");
-					if (ent->client->pers.cp_split > 0)
-						gi.cprintf(ent, PRINT_HIGH, "split: %1.3f | ", my_split);
-					gi.bprintf(PRINT_HIGH, "1st completion)\n");
-					return false;
-				}
+						sprintf(msg, "%s finished in %1.3f seconds (1st ", ent->client->pers.netname, time);
+						Com_sprintf(txt, sizeof(txt), "%1.3f ", time - level_items.stored_item_times[0].time);
+						sprintf(msg + strlen(msg), "%s | ", HighAscii(txt));
+						if (ent->client->pers.cp_split > 0)
+							sprintf(msg + strlen(msg), "split: %1.3f | ", my_split);
+						gi.bprintf(PRINT_HIGH, "%s1st completion)\n", msg);
+						return false;
+					}
 
 				// always display someone's first completion
 				gi.bprintf(PRINT_HIGH,"%s finished in %1.3f seconds (1st +%1.3f | ",
