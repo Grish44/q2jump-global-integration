@@ -8468,6 +8468,8 @@ qboolean tourney_log(edict_t *ent,int uid, float time,char *date )
 	int trecid;
 	float oldtime;
     edict_t *cl_ent;
+	char msg[255];
+	char txt[255];
 
 	//find user in tourney record
 	trecid = FindTRecID(uid);
@@ -8512,24 +8514,27 @@ qboolean tourney_log(edict_t *ent,int uid, float time,char *date )
 
 		//setting a first
 		if (time < level_items.stored_item_times[0].time) {
-			gi.bprintf(PRINT_HIGH, "%s finished in %1.3f seconds (PB ", ent->client->pers.netname, time);
-			gi.bprintf(PRINT_CHAT, "%1.3f ", time - oldtime);
-			gi.bprintf(PRINT_HIGH, "| 1st ");
-			gi.bprintf(PRINT_CHAT, "%1.3f", time - level_items.stored_item_times[0].time);
+			sprintf(msg, "%s finished in %1.3f seconds (PB ", ent->client->pers.netname, time);
+			Com_sprintf(txt, sizeof(txt), "%1.3f ", time - oldtime);
+			sprintf(msg + strlen(msg), "%s | 1st ", HighAscii(txt));
+			Com_sprintf(txt, sizeof(txt), "%1.3f", time - level_items.stored_item_times[0].time);
+			sprintf(msg + strlen(msg), "%s", HighAscii(txt));
 			if (ent->client->pers.cp_split > 0)
-				gi.cprintf(ent, PRINT_HIGH, " | split: %1.3f", my_split);
-			gi.bprintf(PRINT_HIGH, ")\n");			
+				sprintf(msg + strlen(msg)," | split: %1.3f", my_split);
+			gi.bprintf(PRINT_HIGH, "%s)\n", msg);
 			return false;
 		}
-		
+
 		// beat pb, show to server
 		if (time < oldtime) {
-			gi.bprintf(PRINT_HIGH, "%s finished in %1.3f seconds (PB ", ent->client->pers.netname, time);
-			gi.bprintf(PRINT_CHAT, "%1.3f ", time - oldtime);
-			gi.bprintf(PRINT_HIGH, "| 1st +%1.3f", time - level_items.stored_item_times[0].time);
+			sprintf(msg, "%s finished in %1.3f seconds (PB ", ent->client->pers.netname, time);
+			Com_sprintf(txt, sizeof(txt), "%1.3f ", time - oldtime);
+			sprintf(msg + strlen(msg), "%s | 1st ", HighAscii(txt));
+			Com_sprintf(txt, sizeof(txt), "%1.3f", time - level_items.stored_item_times[0].time);
+			sprintf(msg + strlen(msg), "%s", HighAscii(txt));
 			if (ent->client->pers.cp_split > 0)
-				gi.cprintf(ent, PRINT_HIGH, " | split: %1.3f", my_split);
-			gi.bprintf(PRINT_HIGH, ")\n");			
+				sprintf(msg + strlen(msg), " | split: %1.3f", my_split);
+			gi.bprintf(PRINT_HIGH, "%s)\n", msg);
 			return false;
 		}
 
