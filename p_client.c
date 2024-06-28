@@ -2664,6 +2664,26 @@ void ClientBeginServerFrame (edict_t *ent)
 
 	client->latched_buttons = 0;
 
+	// GRISH TEST RACELINE
+	if(ent->client->resp.raceline){ 
+		racenr = ent->client->resp.rep_race_number;
+		if (racenr<0 || racenr>MAX_HIGHSCORES+gset_vars->global_replay_max)
+			racenr = 0;
+		for (i=0 ; i<MAX_RECORD_FRAMES ; i++) {
+			if (level_items.recorded_time_data[racenr][i+1].origin[0] == 0 && level_items.recorded_time_data[racenr][i+1].origin[1] == 0) {
+				break;
+			}
+			gi.WriteByte (svc_temp_entity);
+			//gi.WriteByte (TE_DEBUGTRAIL);
+			gi.WriteByte (TE_BFG_LASER);			
+			gi.WritePosition (level_items.recorded_time_data[racenr][i].origin);
+			gi.WritePosition (level_items.recorded_time_data[racenr][i+2].origin);
+			gi.unicast(ent,true);
+			i += 1;
+		}
+	}
+	// END TEST RACELINE
+
 	if (!ent->client->resp.race_frame)
 	{
 		if (ent->client->resp.rep_racing_delay)

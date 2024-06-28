@@ -1068,6 +1068,10 @@ typedef struct
 	char		hudstring[2048];
 	char		client_version[128];
 
+	// GRISH TEST RACELINE
+	qboolean	raceline;
+	// END TEST RACELINE
+
 } client_respawn_t;
 
 

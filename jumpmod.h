@@ -3,7 +3,7 @@
 //defines
 #define MAX_USERS 2048 //reduced from 4096 to save memory
 #define MAX_HIGHSCORES 15
-#define CTF_VERSION_S		"1.45global"
+#define CTF_VERSION_S		"1.45gtest"
 #define		HOOK_READY	0
 #define		HOOK_OUT	1
 #define		HOOK_ON		2
@@ -585,6 +585,9 @@ extern char zbbuffer2[256];
 
 void KillMyRox(edict_t *ent);
 void Cmd_Race (edict_t *ent);
+// GRISH TEST RACELINE
+void Cmd_Raceline (edict_t *ent);
+// END TEST RACELINE
 void stuffcmd(edict_t *e, char *s);
 int Q_stricmp (char *s1, char *s2);
 char *Info_ValueForKey (char *s, char *key);
