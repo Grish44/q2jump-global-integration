@@ -1616,8 +1616,6 @@ void ClientCommand (edict_t *ent)
       CTFUnSilence (ent); 
 	} else if (Q_stricmp (cmd, "race") == 0)
 		Cmd_Race (ent);
-	else if (Q_stricmp (cmd, "raceline") == 0)
-		Cmd_Raceline (ent);
 	else if (Q_stricmp (cmd, "whois") == 0)
 		Cmd_Whois (ent);
 	else if (Q_stricmp (cmd, "lastmaps") == 0)
