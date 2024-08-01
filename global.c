@@ -1,7 +1,7 @@
 /*
 Global Server Integration
 Author: Grish
-Version: 1.45global
+Version: 1.46global
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#include <curl/curl.h> // Dynamically link me!!
+#include <curl/curl.h> // Static link me!!
 #include <unistd.h>
 #include <time.h>
 
@@ -158,22 +158,33 @@ void Download_Remote_Mapents(char *mapname)
 	int i;
 	int tcount;
 	tgame = gi.cvar("game", "", 0);
+	char *urlencoded_mapname = mapname; // default unencoded
 
 	// init curl	
 	curl_global_init(CURL_GLOBAL_ALL);
-
+	CURL *tmp_curl;	// url encode the mapname (thanks to railjump#1 etc..!)
+	tmp_curl = curl_easy_init();
+	if (tmp_curl) { // only encode if curl doesn't fail
+		urlencoded_mapname = curl_easy_escape(tmp_curl, mapname, 0);				
+	}
+	
 	//download mapsent..
 	sprintf(args[0].filename, "%s/mapsent/%s.ent", tgame->string, mapname);
-	sprintf(args[0].url, "%s/mapsent/%s.ent", gset_vars->global_ents_url, mapname);
+	sprintf(args[0].url, "%s/mapsent/%s.ent", gset_vars->global_ents_url, urlencoded_mapname);
 	pthread_create(&tid[0],NULL,HTTP_Get_File_MT,(void *)&args[0]);
 	//download mapname.cfg
 	sprintf(args[1].filename, "%s/ent/%s.cfg", tgame->string, mapname);
-	sprintf(args[1].url, "%s/ent/%s.cfg", gset_vars->global_ents_url, mapname);
+	sprintf(args[1].url, "%s/ent/%s.cfg", gset_vars->global_ents_url, urlencoded_mapname);
 	pthread_create(&tid[1],NULL,HTTP_Get_File_MT,(void *)&args[1]);
 	//download mapname.add
 	sprintf(args[2].filename, "%s/ent/%s.add", tgame->string, mapname);
-	sprintf(args[2].url, "%s/ent/%s.add", gset_vars->global_ents_url, mapname);
+	sprintf(args[2].url, "%s/ent/%s.add", gset_vars->global_ents_url, urlencoded_mapname);
 	pthread_create(&tid[2],NULL,HTTP_Get_File_MT,(void *)&args[2]);
+	// clean up curl
+	if (tmp_curl) {
+		curl_free(urlencoded_mapname);
+		curl_easy_cleanup(tmp_curl);
+	}	
 	/* now wait for all threads to terminate */
   	for(i = 0; i<3; i++)
 	{
@@ -199,13 +210,15 @@ static void *HTTP_Get_File_MT(void *arguments)
 	strcpy(filename, args->filename);
 	FILE *fp;
 	CURL *curl;	
-	curl = curl_easy_init();
+	curl = curl_easy_init();	
+
 	if (curl)
 	{
-
 		fp = Open_File_RB_WB(filename);
-		if (!fp)
+		if (!fp) {
+			curl_easy_cleanup(curl);
 			return NULL;
+		}			
 
 		curl_easy_setopt(curl, CURLOPT_URL, url);
 		curl_easy_setopt(curl, CURLOPT_TIMEOUT, HTTP_MULTI_TIMEOUT);
@@ -217,7 +230,7 @@ static void *HTTP_Get_File_MT(void *arguments)
 		curl_easy_perform(curl);
 		curl_off_t cl;
 		// get returned byte length
-		curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD_T, &cl);
+		curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD_T, &cl);		
 		curl_easy_cleanup(curl);
 
 		// debug log
@@ -363,9 +376,16 @@ static void *HTTP_Get_File_MT(void *arguments)
 		int j;
 		int tcount = 0;
 		tgame = gi.cvar("game", "", 0);
+		char *urlencoded_mapname = mapname; // default unencoded
 
 		// init curl
 		curl_global_init(CURL_GLOBAL_ALL);
+		CURL *tmp_curl; // just to url encode the mapname (thanks railjump#1 etc..!)
+		tmp_curl = curl_easy_init();
+		if (tmp_curl)
+		{
+			urlencoded_mapname = curl_easy_escape(tmp_curl, mapname, 0);
+		}
 
 		for (i = 0; i < gset_vars->global_replay_max; i++)
 		{
@@ -374,28 +394,32 @@ static void *HTTP_Get_File_MT(void *arguments)
 
 			if (sorted_remote_map_best_times[i].time > 0.0001)
 			{
-				sprintf(args[i].url, "%s/jumpdemo/%s_%d.dj3", sorted_remote_map_best_times[i].replay_host_url, mapname, sorted_remote_map_best_times[i].id);
+				sprintf(args[i].url, "%s/jumpdemo/%s_%d.dj3", sorted_remote_map_best_times[i].replay_host_url, urlencoded_mapname, sorted_remote_map_best_times[i].id);
 				sprintf(args[i].filename, "%s/global/jumpdemo/%s_%d.%s", tgame->string, mapname, sorted_remote_map_best_times[i].id, sorted_remote_map_best_times[i].server);
 				if (tcount == gset_vars->global_threads_max)
 				{
 					for (j = 0; j < tcount; j++)
 					{
-    					pthread_join(tid[j], NULL); // close threads
-  					}
-				tcount=0;
+						pthread_join(tid[j], NULL); // close threads
+					}
+					tcount = 0;
+				}
+				pthread_create(&tid[tcount], NULL, HTTP_Get_File_MT, (void *)&args[i]);
+				tcount++;
 			}
-			pthread_create(&tid[tcount],NULL,HTTP_Get_File_MT,(void *)&args[i]);
-			tcount++;
-		}	
+		}
+		if (tmp_curl) {
+			curl_free(urlencoded_mapname);
+			curl_easy_cleanup(tmp_curl);
+		}
+		/* now wait for all threads to terminate */
+		for (i = 0; i < tcount; i++)
+		{
+			pthread_join(tid[i], NULL);
+		}
+		curl_global_cleanup();
+		return;
 	}
-	/* now wait for all threads to terminate */
-  	for(i = 0; i< tcount; i++)
-	{
-    	pthread_join(tid[i], NULL);
-  	}
-  	curl_global_cleanup();
-  	return;
-}
 
 /*
 ==============================
@@ -545,6 +569,7 @@ void Download_Remote_Maptimes(char *mapname)
 	int tcount = 0;
 	int dupe =0;
 	tgame = gi.cvar("game", "", 0);
+	char *urlencoded_mapname = mapname; // default no encoding
 	
 	if (gset_vars->global_integration_enabled == 0) {
 		return; // global is disabled
@@ -557,6 +582,11 @@ void Download_Remote_Maptimes(char *mapname)
 
 	// init curl	
 	curl_global_init(CURL_GLOBAL_ALL);
+	CURL *tmp_curl;	// just to url encode the mapname (thanks railjump#1 etc..!)
+	tmp_curl = curl_easy_init();
+	if (tmp_curl) {
+		urlencoded_mapname = curl_easy_escape(tmp_curl, mapname, 0);
+	}	
 
 	for (i=0;i<MAX_REMOTE_HOSTS;i++)
 	{
@@ -576,9 +606,9 @@ void Download_Remote_Maptimes(char *mapname)
 		  	dupe=0;
 		  	continue;
 		} // end validations
-					
+
 		sprintf (args[i].filename, "%s/global/maptimes/%s.t.%s", tgame->string, mapname, pGlobalHostName[i]);
-		sprintf (args[i].url,"%s/%d/%s.t",pGlobalHostUrl[i],*pGlobalHostPort[i], mapname);
+		sprintf (args[i].url,"%s/%d/%s.t",pGlobalHostUrl[i],*pGlobalHostPort[i], urlencoded_mapname);
 		if (tcount == gset_vars->global_threads_max)
 			{
 				for (j = 0; j< tcount; j++)
@@ -589,6 +619,10 @@ void Download_Remote_Maptimes(char *mapname)
 			}
 			pthread_create(&tid[tcount],NULL,HTTP_Get_File_MT,(void *)&args[i]);
 			tcount++;		
+	}
+	if (tmp_curl) {
+		curl_free(urlencoded_mapname);
+		curl_easy_cleanup(tmp_curl);
 	}
 	/* now wait for all threads to terminate */
   	for(i = 0; i< tcount; i++)
@@ -1426,56 +1460,4 @@ void Display_Dual_Scoreboards ()
 	//display this sucker!
 	gi.WriteByte(svc_layout);
 	gi.WriteString(string);
-}
-
-void save_global_scoreboard() // not used
-{	
-
-	FILE *f;
-	int i;
-	char buffer[1024];
-	cvar_t *tgame;
-	tgame = gi.cvar("game", "", 0);
-
-	// current date stuff
-	char filename[128];
-	char curdate[32];
-	struct tm *to;
-	time_t t;
-	t = time(NULL);
-	to = localtime(&t);
-	strftime(curdate, sizeof(curdate), "%Y%m%d", to);
-
-	// write the wr file to fs
-	sprintf(filename, "%s/global/maptimes/wr/%s.wr.%s.local", tgame->string, level.mapname, curdate);
-	f = fopen(filename, "wb");
-	if (!f)
-	{
-		sprintf(filename, "%s/global/maptimes/wr/%s.wr.%s.local.safe", tgame->string, level.mapname, curdate);
-		f = fopen(filename, "wb");
-		if (!f)
-			return NULL;
-	}
-		
-	// file header
-	fprintf(f, "Pos. Name Date Completions Time Server\n");
-	for (i = 0; i < MAX_HIGHSCORES; i++)
-	{
-		if (sorted_remote_map_best_times[i].time > 0.0001)
-		{
-			Com_sprintf(buffer, sizeof(buffer), "%d %s %s %d %9.3f %s", i+1, sorted_remote_map_best_times[i].name, sorted_remote_map_best_times[i].date, sorted_remote_map_best_times[i].completions, sorted_remote_map_best_times[i].time, sorted_remote_map_best_times[i].server);
-			fprintf(f, "%s\n", buffer);
-		}
-	}
-
-	fclose(f);
-}
-
-void delete_global_scoreboard(char *rec_date) // not used
-{
-	cvar_t *tgame;
-	tgame = gi.cvar("game", "", 0);
-	char filename[128];
-	sprintf(filename, "%s/global/maptimes/wr/%s.wr.%s.local", tgame->string, level.mapname, rec_date);
-	remove(filename);
 }

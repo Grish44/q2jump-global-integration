@@ -1,7 +1,7 @@
 /*
 Global Server Integration
 Author: Grish
-Version: 1.45global
+Version: 1.46global
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -43,10 +43,7 @@ void Print_Remote_Maptimes(edict_t* ent, char *server);
 void Update_Global_Scores(edict_t *ent, float item_time, char *owner); // not used (in lieu of reloading via files)
 void Cmd_Remote_Replay(edict_t *ent, int num);
 void Display_Global_Scoreboard ();
-//TESTING DUAL SCOREBOARD
 void Display_Dual_Scoreboards();
-void save_global_scoreboard();
-void delete_global_scoreboard(char *rec_date);
 
 // Structs
 typedef struct
