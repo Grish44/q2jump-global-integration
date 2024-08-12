@@ -3,7 +3,7 @@
 //defines
 #define MAX_USERS 2048 //reduced from 4096 to save memory
 #define MAX_HIGHSCORES 15
-#define CTF_VERSION_S		"1.46global"
+#define CTF_VERSION_S		"1.47global"
 #define		HOOK_READY	0
 #define		HOOK_OUT	1
 #define		HOOK_ON		2

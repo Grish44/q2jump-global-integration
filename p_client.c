@@ -2064,47 +2064,61 @@ void PrintPmove (pmove_t *pm)
 }
 
 //Checks cpbrushes if they need to change solidity.
-void CheckCpbrush(edict_t *ent, qboolean pre_pmove) {
-	vec3_t mins = { -50, -50, -50 };
-	vec3_t maxs = { 50, 50, 50 };
+void CheckCpbrush(edict_t *ent, qboolean pre_pmove)
+{
+	vec3_t mins = {-50, -50, -50};
+	vec3_t maxs = {50, 50, 50};
 	vec3_t checkmins, checkmaxs;
-	int		i;
+	int i;
 	edict_t *brush;
 
-	if (pre_pmove) {
-		for (i = 0; i < MAX_EDICTS; i++) {
-			if (level.cpbrushes[i] == NULL) {
+	if (pre_pmove)
+	{
+		for (i = 0; i < MAX_EDICTS; i++)
+		{
+			if (level.cpbrushes[i] == NULL)
+			{
 				break;
 			}
 			brush = level.cpbrushes[i];
 			VectorAdd(brush->absmin, mins, checkmins);
 			VectorAdd(brush->absmax, maxs, checkmaxs);
-			if (VectorInside(checkmins, checkmaxs, ent->s.origin)) {
-				if (brush->spawnflags != 1) {
-					if (ent->client->resp.store[0].checkpoints >= brush->count) {
+			if (VectorInside(checkmins, checkmaxs, ent->s.origin))
+			{
+				if (brush->spawnflags & 1)
+				{
+					if ((!(brush->spawnflags & 2) && ent->client->resp.store[0].checkpoints < brush->count) || (brush->spawnflags & 2 && ent->client->resp.store[0].cpbox_checkpoint[brush->count] == 0))
+					{
 						brush->solid = SOLID_NOT;
-						stuffcmd(ent, "gl_polyblend 0"); //so players don't see that orangeish blur.
+						stuffcmd(ent, "gl_polyblend 0"); // so players don't see that orangeish blur.
 					}
 				}
-				else if (brush->spawnflags == 1) {
-					if (ent->client->resp.store[0].checkpoints < brush->count) {
+				else
+				{
+					if ((!(brush->spawnflags & 2) && ent->client->resp.store[0].checkpoints >= brush->count) || (brush->spawnflags & 2 && ent->client->resp.store[0].cpbox_checkpoint[brush->count] == 1))
+					{
 						brush->solid = SOLID_NOT;
-						stuffcmd(ent, "gl_polyblend 0"); //so players don't see that orangeish blur.
+						stuffcmd(ent, "gl_polyblend 0"); // so players don't see that orangeish blur.
 					}
 				}
 			}
 		}
 	}
-	else {
-		for (i = 0; i < MAX_EDICTS; i++) {
-			if (level.cpbrushes[i] == NULL) {
+	else
+	{
+		for (i = 0; i < MAX_EDICTS; i++)
+		{
+			if (level.cpbrushes[i] == NULL)
+			{
 				break;
 			}
 			brush = level.cpbrushes[i];
-			if (brush->spawnflags != 1 && brush->solid == SOLID_NOT) {
+			if (brush->spawnflags != 1 && brush->solid == SOLID_NOT)
+			{
 				brush->solid = SOLID_BSP;
 			}
-			else if (brush->spawnflags == 1 && brush->solid == SOLID_NOT) {
+			else if (brush->spawnflags == 1 && brush->solid == SOLID_NOT)
+			{
 				brush->solid = SOLID_BSP;
 			}
 		}

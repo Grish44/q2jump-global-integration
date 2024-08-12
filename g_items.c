@@ -3760,7 +3760,7 @@ void cpbrush_think(edict_t *self) {
 			continue;
 		gi.WriteByte(svc_configstring);
 		gi.WriteShort(CS_MODELS + self->s.modelindex);
-		if (self->spawnflags == 1) {
+		if (self->spawnflags & 1) {
 			if (ent->client->resp.store[0].checkpoints < self->count) {
 				gi.WriteString("models/jump/emptymodel/tris.md2");
 			}
