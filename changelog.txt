@@ -1,3 +1,29 @@
+#####v1.486global#####
+- Full rewrite of the HTTP architecture:
+  - Async non-blocking file downloading
+  - Dynamic stage/group tagging concept to lump a set of downloads together as a group and share a callback function once they have all completed
+  - Independant stage/group processing, each stage can handle 1-n files
+  - Async download status polling management (ie, cleanups and firing callbacks etc..)
+  - No more need for pthreads
+  = No more game loop blocking during intermission/game spawn/manual resync calls
+  - Supports client/ent pointer callback, for future client data request cmds
+  - Admins can now run "resyncglobaldata" without impacting any game frame or user activity (tip: this command is the only way to re-fetch remote user.t files, other than a server restart)
+- Various fixes/updates added from the 1.35ger source
+- Added "repstats" cmd (toggle on/off) - Shows some additional information during replay playback such as:
+  - Frame cur/total
+  - Start UPS
+  - Distance per frame (XY)
+  - Cumulative distance (XY)
+  - Current and Previous frame origin (XY)
+  - TP detection/reporting
+  - Summary report with all above and average UPS
+  - TODO: Support for fast forwarding without losing the info reporting...
+- Improved and more accurate UPS "speedometer" during replay playback. TP and start detection for UPS calc (prevents huge +- UPS spikes that the legacy speedo had)
+- URL encoding to handle urls/maps containing special chars, such as railjump#1/railjump#1 (thankyou considerate mappers!)
+- Improved global scores sort function with better player name deduping, secondary sort field (date) to help with tie breaking
+- Negative splits shown in green again
+- Fixed auto idle clients able to unfairly pass a vote in some circumstances
+
 #####v1.45global##### // Grish
 - various minor bug fixes/improvements
 - improved maptimes g|global command (although still not perfect!) now lists top times from all servers as a summary, with the option to "drill" into the top 15 for any given server
