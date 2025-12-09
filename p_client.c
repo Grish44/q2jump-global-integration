@@ -682,6 +682,7 @@ void InitClientPersistant(gclient_t *client)
 	vec3_t		vel2;
 	vec3_t		vel3;
 	store_struct savestore;
+	int repstats;
 
 	//idle trough mapchange?	
 	idletime = client->pers.frames_without_movement;
@@ -689,6 +690,9 @@ void InitClientPersistant(gclient_t *client)
 
 	//velocity store feature - carry through the stored velocities and toggle state
 	velstore = client->pers.store_velocity;
+
+	//repstats through mapchange
+	repstats = client->pers.replay_stats;
 
 	//char		user_temp[1024];
 
@@ -740,6 +744,9 @@ void InitClientPersistant(gclient_t *client)
 
 	//velocity store feature - restore the values
 	client->pers.store_velocity = velstore;
+
+	//repstats through mapchange
+	client->pers.replay_stats = repstats;
 }
 
 
@@ -2008,6 +2015,7 @@ void ClientDisconnect (edict_t *ent)
 	ent->inuse = false;
 	ent->classname = "disconnected";
 	ent->client->pers.connected = false;
+	ent->client->pers.replay_stats = 0;
 	hook_reset(ent->client->hook);
 
 	vote_data.votes[ent->client->resp.current_vote]--;
@@ -2093,8 +2101,7 @@ void CheckCpbrush(edict_t *ent, qboolean pre_pmove)
 						stuffcmd(ent, "gl_polyblend 0"); // so players don't see that orangeish blur.
 					}
 				}
-				else
-				{
+				else { //if (brush->spawnflags != 1)
 					if ((!(brush->spawnflags & 2) && ent->client->resp.store[0].checkpoints >= brush->count) || (brush->spawnflags & 2 && ent->client->resp.store[0].cpbox_checkpoint[brush->count] == 1))
 					{
 						brush->solid = SOLID_NOT;
@@ -2501,6 +2508,12 @@ void ClientThink (edict_t *ent, usercmd_t *ucmd)
 			{
 				ent->client->resp.going_forward = false;
 				ent->client->resp.replay_speed++;
+				if (ent->client->resp.replay_speed > REPLAY_SPEED_ONE && ent->client->pers.replay_stats)
+					{
+						gi.cprintf(ent,PRINT_HIGH,"Replay stats OFF due to incompatible replay speed\n");
+						ent->client->pers.replay_stats = 0;
+						ent->client->showscores = 0;
+					}
 				if (ent->client->resp.replay_speed>MAX_REPLAY_SPEED)
 					ent->client->resp.replay_speed = MAX_REPLAY_SPEED;
 				if (ent->client->resp.replay_speed==REPLAY_SPEED_ZERO)
@@ -2516,6 +2529,12 @@ void ClientThink (edict_t *ent, usercmd_t *ucmd)
 			{
 				ent->client->resp.going_back = false;
 				ent->client->resp.replay_speed--;
+				if (ent->client->resp.replay_speed < REPLAY_STATS_MIN_SPEED && ent->client->pers.replay_stats)
+				{
+					gi.cprintf(ent,PRINT_HIGH,"Replay stats OFF due to incompatible replay speed\n");
+					ent->client->pers.replay_stats = 0;
+					ent->client->showscores = 0;
+				}
 				if (ent->client->resp.replay_speed<MIN_REPLAY_SPEED)
 					ent->client->resp.replay_speed = MIN_REPLAY_SPEED;
 				if (ent->client->resp.replay_speed==REPLAY_SPEED_ZERO)

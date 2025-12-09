@@ -1400,17 +1400,9 @@ void ClientCommand (edict_t *ent)
 			{
 				if (gset_vars->global_integration_enabled == 1)
 				{
-					gi.bprintf(PRINT_HIGH, "Refreshing all global data...\n");
-					// full refresh, might cause performance issues
-					// shound't really be needed, use carefully!
-					Download_Remote_Users_Files();			
-					Load_Remote_Users_Files();
-					Download_Remote_Maptimes(level.mapname);
-					Load_Remote_Maptimes(level.mapname);
-					Sort_Remote_Maptimes();
-					Download_Remote_Recordings_MT(level.mapname);
-					Load_Remote_Recordings(0); // start from position 0 == load them all
-					gi.bprintf(PRINT_HIGH, "Done!\n");
+					gi.cprintf(ent,PRINT_HIGH, "Refreshing all global data...\n");
+					Download_Remote_Users_Async(0);
+					gi.cprintf(ent,PRINT_HIGH, "Done!\n");
 				} else {
 					gi.bprintf(PRINT_HIGH, "Global Integration is currently disabled on this server...\n");
 				}
@@ -1423,7 +1415,20 @@ void ClientCommand (edict_t *ent)
 		ent->client->resp.replaying = 0;
 	else if (Q_stricmp (cmd, "rep_repeat") == 0)
 		Cmd_RepRepeat (ent);
-
+	else if (Q_stricmp (cmd, "repstats") == 0)
+	{
+		if (ent->client->pers.replay_stats == 0)
+		{
+				ent->client->pers.replay_stats = 1;
+				gi.cprintf(ent,PRINT_HIGH,"Replay stats are ON\n");
+		}
+		else
+		{
+			ent->client->pers.replay_stats = 0;
+			ent->client->showscores = 0;
+			gi.cprintf(ent,PRINT_HIGH,"Replay stats are OFF\n");
+		}
+	}
 	else if (Q_stricmp (cmd, "remmap") == 0)
 		RemoveMap(ent);
 	else if (Q_stricmp (cmd, "debug") == 0)
@@ -1446,6 +1451,10 @@ void ClientCommand (edict_t *ent)
 		{
 			Cmd_Score3_f(ent);
 		}
+		else if (ent->client->showscores==3 && ent->client->pers.replay_stats && ent->client->resp.replaying)
+		{
+			Cmd_Score4_f(ent);
+		}
 		else
 		{
 			Cmd_Score_f (ent);
@@ -1460,6 +1469,10 @@ void ClientCommand (edict_t *ent)
 		else if (ent->client->showscores==2 && gset_vars->global_integration_enabled == 1)
 		{
 			Cmd_Score3_f(ent);
+		}
+		else if (ent->client->showscores==3 && ent->client->pers.replay_stats && ent->client->resp.replaying)
+		{
+			Cmd_Score4_f(ent);
 		}
 		else
 		{

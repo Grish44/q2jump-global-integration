@@ -154,6 +154,14 @@ qboolean Pickup_Weapon (edict_t *ent, edict_t *other)
 		}
 	}
 
+	// hyperblaster check
+	if (mset_vars->hyperblaster == 1 && pickup != 1) {
+		if (Q_stricmp(ent->item->pickup_name, "HyperBlaster") == 0) {
+			other->client->pers.inventory[index]++;
+			pickup = 1;
+		}
+	}
+
 	// lapcounter check
 	if (mset_vars->lap_total > 0 && pickup != 1) {
 		if (other->client->pers.lapcount < mset_vars->lap_total)

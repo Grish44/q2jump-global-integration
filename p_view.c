@@ -1225,17 +1225,7 @@ void ClientEndServerFrame (edict_t *ent)
 //	if (1 == ESF_debug)
 //		debug_log ("CHECKPOINT: Function: ClientEndServerFrame Line: 1196 File: p_view.c");
 
-	if (!level.status)
-	{
-		if (!ent->client->resp.paused)
-		{
-	//		if (ent->client->resp.ctf_team==CTF_TEAM2)
-			ent->client->resp.item_timer+= 0.1;
-			//gi.bprintf(PRINT_HIGH,"%f %f %f origin\n",ent->s.origin[0]*8,ent->s.origin[1]*8,ent->s.origin[2]*8);
-			Record_Frame(ent);
-			Replay_Recording(ent);
-		}				
-	}
+
 	// if the scoreboard is up, update it
 	
 	if (level.votingtime)
@@ -1248,7 +1238,7 @@ void ClientEndServerFrame (edict_t *ent)
 			}
 		}
 
-	if (ent->client->showscores && !(level.framenum & 31) )
+	if (ent->client->showscores && !(level.framenum & 31))
 		
 	{
 //ZOID
@@ -1276,6 +1266,19 @@ void ClientEndServerFrame (edict_t *ent)
 			}
 		}
 		gi.unicast (ent, false);
+	}
+
+// moved under the scoreboard to avoid clashing with repstats hud
+	if (!level.status)
+	{
+		if (!ent->client->resp.paused)
+		{
+	//		if (ent->client->resp.ctf_team==CTF_TEAM2)
+			ent->client->resp.item_timer+= 0.1;			
+			//gi.bprintf(PRINT_HIGH,"%f %f %f origin\n",ent->s.origin[0]*8,ent->s.origin[1]*8,ent->s.origin[2]*8);
+			Record_Frame(ent);
+			Replay_Recording(ent);
+		}				
 	}
 	//if (1 == ESF_debug)
 //		debug_log ("CHECKPOINT: Function: ClientEndServerFrame Line: 1246 File: p_view.c");

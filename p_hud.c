@@ -95,6 +95,15 @@ void BeginIntermission (edict_t *targ)
 	if (level.intermissiontime)
 		return;		// allready activated
 
+	// Global Integration - purge demos and download ents
+	if (gset_vars->global_integration_enabled)
+	{
+		if (gset_vars->global_ents_sync) // get remote map ents for next map
+		{
+			Download_Remote_Mapents_Async(targ->map);
+		}
+		Purge_Remote_Recordings();		 // clean up the demo files at end of map
+	}
 //ZOID
 	if (deathmatch->value && ctf->value)
 		CTFCalcScores();
@@ -225,15 +234,6 @@ void BeginIntermission (edict_t *targ)
 		if (!client->inuse)
 			continue;
 		MoveClientToIntermission (client);
-	}
-	// Global Integration - purge demos and download ents
-	if (gset_vars->global_integration_enabled)
-	{
-		Purge_Remote_Recordings();		 // clean up the demo files from last map
-		if (gset_vars->global_ents_sync) // get remote map ents
-		{
-			Download_Remote_Mapents(level.changemap);
-		}
 	}
 }
 
@@ -445,6 +445,28 @@ void Cmd_Score3_f (edict_t *ent)
 	ent->client->showscores = 3;
 
 	BestTimesScoreboardGlobal (ent);
+}
+
+void Cmd_Score4_f (edict_t *ent) // hax for replay stats to piggy back this scoreboard unicast system
+{
+	ent->client->showinventory = false;
+	ent->client->showhelp = false;
+//ZOID
+	if (ent->client->menu)
+		PMenu_Close(ent);
+//ZOID
+
+	if (!deathmatch->value && !coop->value)
+		return;
+
+	if (ent->client->showscores >=4)
+	{
+		ent->client->showscores = 0;
+		ent->client->update_chase = true;
+		return;
+	}
+
+	ent->client->showscores = 4;
 }
 
 /*

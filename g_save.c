@@ -144,6 +144,9 @@ field_t		clientfields[] =
 	{NULL, 0, F_INT}
 };
 
+// frameskip detection
+cvar_t *g_logskips;
+
 /*
 ============
 InitGame
@@ -164,6 +167,9 @@ void InitGame (void)
 	cvar_t	*tgame;	
 	char	text[128];
 
+	// Frameskip detection
+	g_logskips = gi.cvar("g_logskips", "0", 0); // default off
+
 	removed_map = false;
 	srand ( time(NULL) );
 	gset_vars->debug = 1;
@@ -175,7 +181,7 @@ void InitGame (void)
 	FS_CreatePath(va("%s/jumpdemo/",tgame->string));
 	// dirs for global files	
 	FS_CreatePath(va("%s/global/jumpdemo/",tgame->string));
-	//FS_CreatePath(va("%s/global/maptimes/wr/",tgame->string));
+	FS_CreatePath(va("%s/global/maptimes/",tgame->string));
 	FS_CreatePath(va("%s/mapsent/",tgame->string));
 	FS_CreatePath(va("%s/ent/",tgame->string));	
 
@@ -337,11 +343,8 @@ void InitGame (void)
 
 	// Global Integration: start load the remote user.t file/s on server init
 	if (gset_vars->global_integration_enabled == 1)
-	{
-		gi.dprintf("Started: Download and Load remote user files...\n");		
-		Download_Remote_Users_Files();
-		Load_Remote_Users_Files();
-		gi.dprintf("Completed: Download and Load remote user files\n");		
+	{		
+		Download_Remote_Users_Async(1);
 	}	
 	// END Global Integration
 

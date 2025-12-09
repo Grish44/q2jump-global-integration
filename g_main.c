@@ -20,6 +20,27 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "g_local.h"
 
+// Frameskip detection and logging
+#ifdef _WIN32
+#include <windows.h>
+double GetTimeSeconds(void)
+{
+    static LARGE_INTEGER freq;
+    LARGE_INTEGER now;
+    if (freq.QuadPart == 0) QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&now);
+    return (double)now.QuadPart / freq.QuadPart;
+}
+#else
+#include <sys/time.h>
+double GetTimeSeconds(void)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec + tv.tv_usec * 1e-6;
+}
+#endif
+
 game_locals_t	game;
 level_locals_t	level;
 game_import_t	gi;
@@ -76,6 +97,9 @@ cvar_t	*flood_persecond_other;
 cvar_t	*flood_waitdelay_other;
 
 cvar_t	*sv_maplist;
+
+// Frameskip detection and logging
+extern cvar_t *g_logskips;
 
 void SpawnEntities (char *mapname, char *entities, char *spawnpoint);
 void ClientThink (edict_t *ent, usercmd_t *cmd);
@@ -854,6 +878,10 @@ Advances the world by 0.1 seconds
 */
 void G_RunFrame (void)
 {
+	// Frameskip detection and logging	
+	double start, elapsed;
+	start = GetTimeSeconds();
+
 	int		i;
 	edict_t	*ent;
 	gclient_t	*cl;
@@ -874,6 +902,7 @@ void G_RunFrame (void)
 	char *time_str;		// hann
 	cvar_t  *port;		// hann
 	time_t	cmd_time;
+	static qboolean waiting_msg_printed = false; // only print "waiting for download" once
 
 	// hann: Print a timestamp to the console every 10 mins like OSP tourney does.
 	// hann: Can be useful if logging is turned on - the timestamp appears in qconsole.log
@@ -967,27 +996,39 @@ void G_RunFrame (void)
 
 	if (level.exitintermission)
 	{
+		if (Check_AsyncStage("mapents_download") || gset_vars->global_ents_sync != 1)
+		{
+			waiting_msg_printed = false; // reset for next map
 
-		ExitLevel ();
-	//pooy
-	for (i=0 ; i<maxclients->value ; i++)
-	{
-			cl = game.clients + i;
-			if (!g_edicts[i+1].inuse)
-				continue;
-			temp = &g_edicts[i+1];
-			CTFObserver(temp);	
-			temp->client->resp.got_time = false;
-			temp->client->resp.silence = false;
-			temp->client->resp.silence_until = 0;
-	}
-		
-		level_items.jumps = 0;
-		level_items.item_time = 0;
-		level_items.item_owner[0] = 0;
-		level_items.item_name[0] = 0;
-		level_items.fastest_player=NULL;
-		return;
+			ExitLevel();
+			// pooy
+			for (i = 0; i < maxclients->value; i++)
+			{
+				cl = game.clients + i;
+				if (!g_edicts[i + 1].inuse)
+					continue;
+				temp = &g_edicts[i + 1];
+				CTFObserver(temp);
+				temp->client->resp.got_time = false;
+				temp->client->resp.silence = false;
+				temp->client->resp.silence_until = 0;
+			}
+
+			level_items.jumps = 0;
+			level_items.item_time = 0;
+			level_items.item_owner[0] = 0;
+			level_items.item_name[0] = 0;
+			level_items.fastest_player = NULL;
+			return;
+		}
+		else
+		{
+			if (!waiting_msg_printed && gset_vars->global_ents_sync == 1)
+			{
+				gi.cprintf(NULL, PRINT_HIGH, "Waiting for map ents download to complete...\n");
+				waiting_msg_printed = true;
+			}
+		}
 	}
 
 	//
@@ -1180,7 +1221,15 @@ void G_RunFrame (void)
 		}
 	}
 	curclients = tempclients;
+	AsyncStage_Poll(); // Global async download poller
 
+	// Frameskip check and log
+    
+    elapsed = GetTimeSeconds() - start;
+    if (g_logskips->value && elapsed > 0.1) {
+        int skipped = (int)(elapsed / 0.1);
+        gi.dprintf("WARNING: G_RunFrame took %.3fs (≈%d ticks)\n", elapsed, skipped);
+    }
 }
 
 

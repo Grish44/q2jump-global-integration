@@ -850,7 +850,7 @@ void FetchClientEntData (edict_t *ent);
 void EndDMLevel (void);
 
 //pooy
-void EndDMLevel (void);  // not sure why id didn't include this 
+//void EndDMLevel (void);  // not sure why id didn't include this 
 
 
 //
@@ -924,6 +924,7 @@ typedef struct
 
 	qboolean	store_velocity;		//velocity store feature (toggle)
 	qboolean	stuffed;
+	int replay_stats;
 } client_persistant_t;
 
 //hud stuff
@@ -1016,6 +1017,12 @@ typedef struct
 	qboolean key_up;
 	qboolean key_down;
 	int			replaying;
+	//Grish track replay distance and stats
+	float replay_distance;
+	float replay_prev_distance;
+	int replay_dist_last_frame;
+	int replay_first_ups;
+	int replay_tp_frame; // capture shonky tp frames
 	double		replay_frame;
 	int replay_data;
 	int			replay_speed;

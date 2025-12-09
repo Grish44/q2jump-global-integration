@@ -1349,7 +1349,7 @@ void SetCTFStats(edict_t *ent)
 		else
 		{
 			ent->client->ps.stats[STAT_JUMP_KEY_JUMP_CROUCH] = 0;
-		}
+		}				
 		ent->client->ps.stats[STAT_JUMP_FPS] = (keys & RECORD_FPS_MASK)>>RECORD_FPS_SHIFT;
 	}
 	
@@ -1375,7 +1375,7 @@ void SetCTFStats(edict_t *ent)
 		{
 			ent->client->ps.stats[STAT_JUMP_KEY_LEFT_RIGHT] = 0;
 			ent->client->ps.stats[STAT_JUMP_KEY_BACK_FORWARD] = 0;
-			ent->client->ps.stats[STAT_JUMP_FPS] = 0;
+			ent->client->ps.stats[STAT_JUMP_FPS] = 0;			
 			ent->client->ps.stats[STAT_JUMP_KEY_JUMP_CROUCH] = 0;
 			ent->client->ps.stats[STAT_JUMP_KEY_ATTACK] = 0;
 		}
@@ -2885,7 +2885,7 @@ qboolean CTFBeginElection(edict_t *ent, elect_t type, char *msg,qboolean require
 		}
 	}
 
-	if (ent!=NULL && ent->client->pers.idle_player) {
+	if (ent!=NULL && (ent->client->pers.idle_player || ent->client->pers.frames_without_movement > 60000 )) {
 		gi.cprintf(ent, PRINT_HIGH, "You are idle, and can't start a vote.\n");
 		return false;
 	}

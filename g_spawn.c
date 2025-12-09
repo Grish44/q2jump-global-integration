@@ -803,6 +803,7 @@ debug_log(text);
 		if (com_token[0] != '{')
 		{
 			gi.dprintf("Error with Entity file, exiting\n");
+			//gi.dprintf("Entity parse BAD: found %s when expecting { filename: %s\n",com_token,file_loc2);
 //			if (ent)
 //				G_FreeEdict (ent);	
 			break;
@@ -909,13 +910,8 @@ debug_log(text);
 	}
 
 	if (gset_vars->global_integration_enabled == 1)
-	{				
-		Download_Remote_Maptimes(level.mapname);
-		Load_Remote_Maptimes(level.mapname);
-		Sort_Remote_Maptimes();		
-		Download_Remote_Recordings_MT(level.mapname);
-		//Download_Remote_Recordings_NB();
-		Load_Remote_Recordings(0); // start from position 0 == load them all
+	{		
+		Download_Remote_Maptimes_Async(level.mapname);
 	} else
 	{
 		//clear the array records so old cached stuff doesn't carry through to next map
@@ -1277,6 +1273,8 @@ void SP_worldspawn (edict_t *ent)
 	gi.modelindex ("models/objects/gibs/chest/tris.md2");
 	gi.modelindex ("models/objects/gibs/skull/tris.md2");
 	gi.modelindex ("models/objects/gibs/head2/tris.md2");
+
+	gi.modelindex ("models/jump/emptymodel/tris.md2"); //cpbrush hack..
 
 //
 // Setup light animation tables. 'a' is total darkness, 'z' is doublebright.

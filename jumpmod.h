@@ -3,7 +3,7 @@
 //defines
 #define MAX_USERS 2048 //reduced from 4096 to save memory
 #define MAX_HIGHSCORES 15
-#define CTF_VERSION_S		"1.47global"
+#define CTF_VERSION_S		"1.486global" // fix auto idle passing votes...
 #define		HOOK_READY	0
 #define		HOOK_OUT	1
 #define		HOOK_ON		2
@@ -22,7 +22,7 @@
 // Global Integration Settings
 #define MAX_REMOTE_HOSTS 5 // DO NOT EDIT!! unless you also update the global_* gsets
 #define MAX_REMOTE_REPLAYS 15 // configurable in-game via gset
-#define HTTP_MULTI_TIMEOUT 6
+#define HTTP_MULTI_TIMEOUT 8
 #define	HTTP_MULTI_CONN_TIMEOUT 3
 #define	HTTP_TIMEOUT 3
 #define	HTTP_CONN_TIMEOUT 3
@@ -151,10 +151,11 @@ typedef struct
 
 typedef struct
 {
-	vec3_t		angle;
-	vec3_t		origin;
-#ifdef ANIM_REPLAY
-	int			frame;
+	vec3_t angle;
+	vec3_t origin;
+#ifdef ANIM_REPLAY	
+	int frame;
+	//short cur_speed;
 #endif
 } record_data;
 
@@ -433,6 +434,7 @@ typedef struct
 	int ghost_model;
 	int gravity;
 	int health;
+	int hyperblaster;
 	int lap_total;
 	int quad_damage;
 	int regen;
@@ -496,8 +498,7 @@ typedef struct
 	char global_url_3[256];
 	char global_url_4[256];
 	char global_url_5[256];
-	int global_replay_max;
-	int global_threads_max;
+	int global_replay_max;	
 	int global_port_1;
 	int global_port_2;
 	int global_port_3;
@@ -725,6 +726,7 @@ qboolean ValidateMap (char *mapname); // updated to try and download a missing m
 #define MIN_REPLAY_SPEED 0
 #define REPLAY_SPEED_ZERO 9
 #define REPLAY_SPEED_ONE  13
+#define REPLAY_STATS_MIN_SPEED 5
 
 static const double replay_speed_modifier[] =  
 {-100, -25, -10, -5, -2, -1, -0.5, -0.2, -0.1, 0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 25, 100};
@@ -805,9 +807,9 @@ void reset_maps_completed(edict_t *ent);
 #define RECORD_KEY_FORWARD 16 << RECORD_KEY_SHIFT
 #define RECORD_KEY_BACK    32 << RECORD_KEY_SHIFT
 #define RECORD_KEY_ATTACK  64 << RECORD_KEY_SHIFT
-
 #define RECORD_FPS_SHIFT    8
 #define RECORD_FPS_MASK   255 << RECORD_FPS_SHIFT
+
 void Update_Added_Time(void);
 void Update_Highscores(int start);
 void Highlight_Name(char *name);
