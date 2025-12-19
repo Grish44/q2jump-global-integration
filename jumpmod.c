@@ -7667,7 +7667,6 @@ void shiftent (edict_t *ent)
 	}
 }
 
-maplist_uid_file maplistinuid[MAX_MAPS];
 void removemapfrom_uid_file(int uid){
 
 	FILE	*f;
@@ -7676,6 +7675,7 @@ void removemapfrom_uid_file(int uid){
 	cvar_t	*port;
 	cvar_t	*tgame;
 	char	name[256];
+    static maplist_uid_file maplistinuid[MAX_MAPS]; // too large to alloc on the stack
 	char	mapname[256];
 
 	tgame = gi.cvar("game", "", 0);
