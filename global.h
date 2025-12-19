@@ -38,7 +38,7 @@ typedef struct AsyncFile {
     int completed;         // 0 = pending, 1 = done
     int success;           // 0 = failed, 1 = succeeded
     CURL *easy_handle;     // handle for non-blocking
-	FILE *fp			   // store opened tmp file
+	FILE *fp;			   // store opened tmp file
 } AsyncFile;
 
 typedef struct AsyncStage {
