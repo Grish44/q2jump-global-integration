@@ -7675,8 +7675,10 @@ void removemapfrom_uid_file(int uid){
 	cvar_t	*port;
 	cvar_t	*tgame;
 	char	name[256];
-    maplist_uid_file maplistinuid[MAX_MAPS];
+    static maplist_uid_file maplistinuid[MAX_MAPS]; // too large to alloc on the stack
 	char	mapname[256];
+    
+    memset(maplistinuid, 0, sizeof(maplistinuid));
 
 	tgame = gi.cvar("game", "", 0);
 	port = gi.cvar("port", "", 0);
