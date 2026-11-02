@@ -1,4 +1,4 @@
-#####Unreleased#####
+#####v1.49global-sata-pull#####
 - Added spawn velocity support for normal spawn and hard respawn:
   - Use "velocity" for a launch vector, or "speed" with "angle"/"angles". Added spawns retain these settings.
   - Hard-team timer still starts on the first movement/attack input.
