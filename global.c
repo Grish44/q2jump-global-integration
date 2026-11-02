@@ -48,6 +48,7 @@ remote_map_best_times_record remote_map_best_times[MAX_REMOTE_HOSTS][MAX_HIGHSCO
 sorted_remote_map_best_times_record sorted_remote_map_best_times[(MAX_HIGHSCORES * MAX_REMOTE_HOSTS) + MAX_HIGHSCORES];
 AsyncStage *g_async_stages[MAX_ASYNC_STAGES];
 int g_num_async_stages = 0;
+static int remote_users_refresh_needed = 0;
 
 // ------------------- HTTP Stage init -------------------
 void AsyncStage_Init(void)
@@ -778,8 +779,141 @@ void Load_Remote_Users()
 	}
 }
 
+/* Find a remote user by host-local ID. */
+static int Remote_User_FindSlot(int host, int id)
+{
+	int k;
+
+	for (k = 0; k < MAX_USERS; k++)
+	{
+		if (remote_users[host][k].id == id)
+			return k;
+	}
+
+	return -1;
+}
+
+/* Merge newly downloaded users without replacing existing in-memory entries. */
+static void Merge_New_Remote_Users(void)
+{
+	FILE *f;
+	int host;
+	int id, map_completions, score;
+	int slot;
+	char name[64];
+	char filename[128];
+	cvar_t *tgame = gi.cvar("game", "", 0);
+
+	for (host = 0; host < MAX_REMOTE_HOSTS; host++)
+	{
+		sprintf(filename, "%s/global/maptimes/users.t.%s",
+				tgame->string, pGlobalHostName[host]);
+
+		f = fopen(filename, "rb");
+		if (!f)
+			continue;
+
+		while (fscanf(f, "%d %d %d %63s",
+					  &id, &map_completions, &score, name) == 4)
+		{
+			/* IDs are local to each host; zero marks an unused array slot. */
+			if (id <= 0 || Remote_User_FindSlot(host, id) >= 0)
+				continue;
+
+			for (slot = 0; slot < MAX_USERS; slot++)
+			{
+				if (remote_users[host][slot].id == 0)
+					break;
+			}
+
+			if (slot == MAX_USERS)
+				continue;
+
+			remote_users[host][slot].id = id;
+			remote_users[host][slot].map_completions = map_completions;
+			remote_users[host][slot].score = score;
+			strcpy(remote_users[host][slot].name, name);
+		}
+
+		fclose(f);
+	}
+}
+
+/* Fill any map-time names whose user records arrived in the refresh. */
+static void Resolve_Remote_Maptime_Names(void)
+{
+	int host, row, slot;
+
+	for (host = 0; host < MAX_REMOTE_HOSTS; host++)
+	{
+		for (row = 0; row < MAX_HIGHSCORES; row++)
+		{
+			if (remote_map_best_times[host][row].time <= 0)
+				break;
+
+			slot = Remote_User_FindSlot(host, remote_map_best_times[host][row].id);
+			if (slot >= 0)
+			{
+				strcpy(remote_map_best_times[host][row].name,
+					   remote_users[host][slot].name);
+			}
+		}
+	}
+}
+
+static void Load_Remote_Users_Refresh_Callback(void *ctx)
+{
+	(void)ctx;
+	Merge_New_Remote_Users();
+	Resolve_Remote_Maptime_Names();
+	Sort_Remote_Maptimes();
+	Download_Remote_Recordings_Async(level.mapname);
+}
+
+/* Download users.t only; unlike the full sync callback, this does not chain
+ * into another map-times download. */
+static qboolean Download_Remote_Users_Refresh_Async(void)
+{
+	AsyncStage *stage;
+	int host;
+	char url[256];
+	char filename[128];
+	cvar_t *tgame;
+
+	/* An active refresh already owns the sort/recordings continuation. */
+	if (AsyncStage_Find("users_refresh_download"))
+		return true;
+
+	tgame = gi.cvar("game", "", 0);
+	stage = AsyncStage_Create("users_refresh_download",
+							  Load_Remote_Users_Refresh_Callback, NULL, 0);
+	if (!stage)
+		return false;
+
+	for (host = 0; host < MAX_REMOTE_HOSTS; host++)
+	{
+		if (strlen(pGlobalHostName[host]) < 1 ||
+			strcmp(pGlobalHostName[host], "default") == 0 ||
+			strlen(pGlobalHostUrl[host]) < 12)
+		{
+			continue;
+		}
+
+		sprintf(url, "%s/%d/users.t",
+				pGlobalHostUrl[host], *pGlobalHostPort[host]);
+		sprintf(filename, "%s/global/maptimes/users.t.%s",
+				tgame->string, pGlobalHostName[host]);
+		AsyncStage_AddFile(stage, url, filename);
+	}
+
+	return true;
+}
+
 void Load_Remote_Maptimes_Callback(void *ctx) {	
 	Load_Remote_Maptimes(level.mapname);
+	if (remote_users_refresh_needed && Download_Remote_Users_Refresh_Async())
+		return; /* The users-refresh callback continues the load pipeline. */
+
 	Sort_Remote_Maptimes();
 	Download_Remote_Recordings_Async(level.mapname);
 }
@@ -819,6 +953,7 @@ void Load_Remote_Maptimes(char *mapname)
 	}
 
 	// reset the best times records
+	remote_users_refresh_needed = 0;
 	memset(remote_map_best_times, 0, sizeof(remote_map_best_times));
 
 	// up to n remote host times only..
@@ -869,13 +1004,14 @@ void Load_Remote_Maptimes(char *mapname)
 			remote_map_best_times[i][j].time = rmaptime;
 			remote_map_best_times[i][j].id = ruid;
 			remote_map_best_times[i][j].completions = rcompletions;
-			for (k = 0; k < MAX_USERS; k++)
+			k = Remote_User_FindSlot(i, ruid);
+			if (k >= 0)
 			{
-				if (ruid == remote_users[i][k].id)
-				{
-					strcpy(remote_map_best_times[i][j].name, remote_users[i][k].name);
-					break; // name found, break inner for loop
-				}
+				strcpy(remote_map_best_times[i][j].name, remote_users[i][k].name);
+			}
+			else
+			{
+				remote_users_refresh_needed = 1;
 			}
 			j++;
 			if (j == MAX_HIGHSCORES)
