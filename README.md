@@ -16,21 +16,20 @@ It also provides the top 15 demo/replays in addition to the regular local top 15
 
 The global scoreboard looks like this:
 
-![image](https://user-images.githubusercontent.com/87460853/150706584-990d0e1f-6cb5-4fd8-b1b2-71a8aca8f6fa.png)
+<img width="835" height="453" alt="image" src="https://github.com/user-attachments/assets/4e1224c9-3106-44ba-97ab-fae1d6743b8b" />
 
 **Client Commands**
 
 > **score**
   - show/hide toggle between the local and the global scoreboards
-> **replay g|global** [1..15]
+> **replay (g)global** [1..15]
   - playback the requested remote demo
-> **race g|global** [1..15]
+> **race (g)global** [1..15]
   - race against a remote time
-> **maptimes global**
-  - prints the top 30 global times for current map (Note: known issue in v1.36global: not always accurate due to only using top 15 times per remote server. Fix pending)
+> **maptimes (g)lobal [serverid|alias]**
+  - prints a summary of best times for each global server for current map, can view the top15 records per server with, example: "maptimes g aus"
 > **syncglobaldata** (requires admin lvl 5+)
   - full re-fetch and processing of the files/data from each configured remote server
-    **NOTE**: This command can be ran if needed, but best to run very scarcely and not while someone is timing (due to potential frame blocking).
     It can be useful on occasion when the global board appears to be missing a record/name or after enabling the "global_integration_enabled" setting.
 > **poppins**
   - try it and see ;) (hint: also try with admin lvl5+)
@@ -69,4 +68,4 @@ You can update the following variables two different ways
 | Wireplay Programmers | SadButTrue, ManicMiner, wootwoot, LilRedtheJumper                            |
 | German Programmers   | ace, draxi, slippery, Mako                                                   |
 | Various Additions    | Fish, quadz, maq, SumFuka, Killerbee, Doyoon Kim, Hannibal, DeathJump, Grish |
-| Global Integration   | Grish                                                                        |
+| Global Integration   | Grish, sata, slippery                                                        |
