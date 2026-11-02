@@ -623,17 +623,11 @@ void G_SetStats (edict_t *ent)
 	switch (level.status)
 	{
 	case 0 :
-		level.timeleft = (mset_vars->timelimit*60)+(map_added_time*60)-level.time;		
+		level.timeleft = G_MapTimeRemaining();
 
-		temp = (
-			((mset_vars->timelimit*60)+
-			(map_added_time*60))
-			-level.time)/60;
+		temp = G_MapTimeRemaining()/60;
 		//temp--;
-		temp2 = (int)(
-			((mset_vars->timelimit*60)+
-			(map_added_time*60))
-			-level.time)%60;
+		temp2 = (int)G_MapTimeRemaining()%60;
 		if (temp>0)
 			ent->client->ps.stats[STAT_TIME_LEFT] = temp;
 		else if (temp2>0)

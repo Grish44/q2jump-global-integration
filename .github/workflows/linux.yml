@@ -1,0 +1,56 @@
+name: Build & Deploy Linux x86_64
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [created]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    env:
+      WORKDIR: .
+      BUILD_DIR: release
+      LIB_NAME: gamex86_64.so
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ runner.os }}-${{ hashFiles('**/*.c', '**/*.h', 'makefile') }}
+          restore-keys: |
+            ccache-${{ runner.os }}-
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ccache pkg-config libcurl4-openssl-dev
+
+      - name: Show toolchain info
+        run: |
+          gcc --version
+          make --version
+          ccache --version || true
+
+      - name: Build (release)
+        working-directory: ${{ env.WORKDIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          make clean
+          make prep
+          # Legacy header globals need -fcommon with modern GCC.
+          make -j"$(nproc)" CC="ccache gcc -fcommon" release
+          test -f "${BUILD_DIR}/${LIB_NAME}"
+          strip --strip-unneeded "${BUILD_DIR}/${LIB_NAME}"
+          ls -lh "${BUILD_DIR}/"
+
+      - name: Upload artifact (optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-linux-x86_64
+          path: ${{ github.workspace }}/${{ env.BUILD_DIR }}/${{ env.LIB_NAME }}
+          if-no-files-found: error
+          retention-days: 14

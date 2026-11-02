@@ -23,6 +23,7 @@ extern int curtime;
 field_t fields[] = {
 	{"classname", FOFS(classname), F_LSTRING},
 	{"origin", FOFS(s.origin), F_VECTOR},
+	{"velocity", FOFS(velocity), F_VECTOR},
 	{"model", FOFS(model), F_LSTRING},
 	{"spawnflags", FOFS(spawnflags), F_INT},
 	{"speed", FOFS(speed), F_FLOAT},

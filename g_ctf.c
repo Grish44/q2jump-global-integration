@@ -3200,7 +3200,7 @@ void CTFWinElection(int pvote, edict_t* pvoter)
 		gi.bprintf(PRINT_HIGH, "%s Adding %i minutes.\n", msg, ctfgame.ekicknum);
 		map_added_time += ctfgame.ekicknum;
 		Update_Added_Time();
-		timeleft = ((mset_vars->timelimit + map_added_time) - ((int)(level.time / 60))); // old ((int)(level.time / 60)) + (mset_vars->timelimit + map_added_time);
+		timeleft = (mset_vars->timelimit + map_added_time) - (int)(G_MapTime() / 60);
 		ctfgame.election = ELECT_NONE;
 		if (timeleft < 0)
 		{
@@ -3818,7 +3818,7 @@ void CTFRequestMatch(edict_t *ent, pmenuhnd_t *p)
 	char text[1024];
 
 	if (ent->client->resp.admin < aset_vars->ADMIN_VOTE_LEVEL)
-	if ((mset_vars->timelimit*60)+(map_added_time*60)-level.time<120)
+	if (G_MapTimeRemaining()<120)
 	{
 		gi.cprintf(ent,PRINT_HIGH,"You cannot initiate a vote of this kind when timeleft is under 2 minutes\n");
 		return;
@@ -4786,7 +4786,7 @@ void CTFWarp(edict_t *ent)
 	index = ent-g_edicts-1;
 
 	// check for nomapvotetime gset
-	if ((gset_vars->nomapvotetime >= level.time) && (ent->client->resp.admin<aset_vars->ADMIN_VOTE_LEVEL) && curclients > 2) {
+	if ((gset_vars->nomapvotetime >= G_MapTime()) && (ent->client->resp.admin<aset_vars->ADMIN_VOTE_LEVEL) && curclients > 2) {
 		gi.cprintf(ent,PRINT_HIGH,"Votes have been disabled for the first %d seconds of a map.\n",gset_vars->nomapvotetime);
 		return;
 	}
@@ -5166,9 +5166,9 @@ void CTFBoot(edict_t *ent)
 
 	if (ent->client->resp.silence)
 		return;
-	if ((level.time<20) && (ent->client->resp.admin<aset_vars->ADMIN_BOOT_LEVEL))
+	if ((G_MapTime()<20) && (ent->client->resp.admin<aset_vars->ADMIN_BOOT_LEVEL))
 	{
-		gi.cprintf(ent,PRINT_HIGH,"Please wait %2.1f seconds before calling a vote\n",20.0-level.time);
+		gi.cprintf(ent,PRINT_HIGH,"Please wait %2.1f seconds before calling a vote\n",20.0-G_MapTime());
 		return;
 	}
 
@@ -5179,7 +5179,7 @@ void CTFBoot(edict_t *ent)
 	}
 
 	if (ent->client->resp.admin < aset_vars->ADMIN_VOTE_LEVEL)
-	if ((mset_vars->timelimit*60)+(map_added_time*60)-level.time<120)
+	if (G_MapTimeRemaining()<120)
 	{
 		gi.cprintf(ent,PRINT_HIGH,"You cannot initiate a vote of this kind when timeleft is under 2 minutes\n");
 		return;

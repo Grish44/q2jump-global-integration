@@ -793,6 +793,9 @@ edict_t	*PlayerTrail_LastSpot (void);
 void respawn (edict_t *ent);
 void BeginIntermission (edict_t *targ);
 void PutClientInServer (edict_t *ent);
+edict_t *SelectSpawnPointSpot (edict_t *ent, vec3_t origin, vec3_t angles);
+void SelectSpawnPoint (edict_t *ent, vec3_t origin, vec3_t angles);
+qboolean CalcSpawnVelocity (edict_t *spawn_spot, vec3_t out);
 void InitClientPersistant (gclient_t *client);
 void InitClientResp (gclient_t *client);
 void ClientBeginServerFrame (edict_t *ent);
@@ -843,8 +846,17 @@ void M_ChangeYaw (edict_t *ent);
 void G_RunEntity (edict_t *ent);
 
 //
+// g_func.c
+//
+void Move_DelayThink (edict_t *ent);
+
+//
 // g_main.c
 //
+extern int map_hold_frames;
+void G_AdvanceTime (void);
+float G_MapTime (void);
+float G_MapTimeRemaining (void);
 void SaveClientData (void);
 void FetchClientEntData (edict_t *ent);
 void EndDMLevel (void);

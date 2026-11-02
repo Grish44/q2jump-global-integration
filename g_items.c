@@ -3424,7 +3424,7 @@ void SP_jump_time_think(edict_t *ent)
 {
 	int cur_time;
 	int h1,h2,h3,h4;
-	cur_time = ((mset_vars->timelimit*60)+(map_added_time*60)-level.time);
+	cur_time = G_MapTimeRemaining();
 	ent->nextthink = level.time + 1;
 	if (level.status)
 	{

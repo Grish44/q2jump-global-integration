@@ -1,3 +1,11 @@
+#####Unreleased#####
+- Added spawn velocity support for normal spawn and hard respawn:
+  - Use "velocity" for a launch vector, or "speed" with "angle"/"angles". Added spawns retain these settings.
+  - Hard-team timer still starts on the first movement/attack input.
+- Fixed holdtime mover overrun while preserving the original map countdown,
+  replay layouts and player run timing. Motion deadlines stay on server frames
+  after a hold, including blocked movers.
+
 #####v1.486global#####
 - Full rewrite of the HTTP architecture:
   - Async non-blocking file downloading

@@ -74,6 +74,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // Support routines for movement (changes in origin using velocity)
 //
 
+// Empty-server holds can leave the simulation running for days. Schedule
+// movement callbacks on its frame grid so float additions cannot add a tick.
+static float Move_ThinkTime (float frames)
+{
+	if (map_hold_frames > 0)
+		return (level.framenum + (int)frames)*FRAMETIME;
+	return level.time + frames*FRAMETIME;
+}
+
 void Move_Done (edict_t *ent)
 {
 	VectorClear (ent->velocity);
@@ -91,7 +100,7 @@ void Move_Final (edict_t *ent)
 	VectorScale (ent->moveinfo.dir, ent->moveinfo.remaining_distance / FRAMETIME, ent->velocity);
 
 	ent->think = Move_Done;
-	ent->nextthink = level.time + FRAMETIME;
+	ent->nextthink = Move_ThinkTime (1);
 }
 
 void Move_Begin (edict_t *ent)
@@ -106,7 +115,7 @@ void Move_Begin (edict_t *ent)
 	VectorScale (ent->moveinfo.dir, ent->moveinfo.speed, ent->velocity);
 	frames = floor((ent->moveinfo.remaining_distance / ent->moveinfo.speed) / FRAMETIME);
 	ent->moveinfo.remaining_distance -= frames * ent->moveinfo.speed * FRAMETIME;
-	ent->nextthink = level.time + (frames * FRAMETIME);
+	ent->nextthink = Move_ThinkTime (frames);
 	ent->think = Move_Final;
 }
 
@@ -127,7 +136,7 @@ void Move_Calc (edict_t *ent, vec3_t dest, void(*func)(edict_t*))
 		}
 		else
 		{
-			ent->nextthink = level.time + FRAMETIME;
+			ent->nextthink = Move_ThinkTime (1);
 			ent->think = Move_Begin;
 		}
 	}
@@ -136,7 +145,7 @@ void Move_Calc (edict_t *ent, vec3_t dest, void(*func)(edict_t*))
 		// accelerative
 		ent->moveinfo.current_speed = 0;
 		ent->think = Think_AccelMove;
-		ent->nextthink = level.time + FRAMETIME;
+		ent->nextthink = Move_ThinkTime (1);
 	}
 }
 
@@ -169,7 +178,7 @@ void AngleMove_Final (edict_t *ent)
 	VectorScale (move, 1.0/FRAMETIME, ent->avelocity);
 
 	ent->think = AngleMove_Done;
-	ent->nextthink = level.time + FRAMETIME;
+	ent->nextthink = Move_ThinkTime (1);
 }
 
 void AngleMove_Begin (edict_t *ent)
@@ -203,7 +212,7 @@ void AngleMove_Begin (edict_t *ent)
 	VectorScale (destdelta, 1.0 / traveltime, ent->avelocity);
 
 	// set nextthink to trigger a think when dest is reached
-	ent->nextthink = level.time + frames * FRAMETIME;
+	ent->nextthink = Move_ThinkTime (frames);
 	ent->think = AngleMove_Final;
 }
 
@@ -217,7 +226,7 @@ void AngleMove_Calc (edict_t *ent, void(*func)(edict_t*))
 	}
 	else
 	{
-		ent->nextthink = level.time + FRAMETIME;
+		ent->nextthink = Move_ThinkTime (1);
 		ent->think = AngleMove_Begin;
 	}
 }
@@ -349,10 +358,23 @@ void Think_AccelMove (edict_t *ent)
 	}
 
 	VectorScale (ent->moveinfo.dir, ent->moveinfo.current_speed*10, ent->velocity);
-	ent->nextthink = level.time + FRAMETIME;
+	ent->nextthink = Move_ThinkTime (1);
 	ent->think = Think_AccelMove;
 }
 
+
+// A blocked team postpones motion by one whole frame. Preserve arbitrary
+// wait callbacks and the original arithmetic on maps that have never held.
+void Move_DelayThink (edict_t *ent)
+{
+	if (map_hold_frames > 0 && (ent->think == Move_Done
+		|| ent->think == Move_Final || ent->think == Move_Begin
+		|| ent->think == AngleMove_Done || ent->think == AngleMove_Final
+		|| ent->think == AngleMove_Begin || ent->think == Think_AccelMove))
+		ent->nextthink = (floor(ent->nextthink / FRAMETIME + 0.5) + 1)*FRAMETIME;
+	else
+		ent->nextthink += FRAMETIME;
+}
 
 void plat_go_down (edict_t *ent);
 

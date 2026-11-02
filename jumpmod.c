@@ -2302,6 +2302,7 @@ void WriteEnts(void)
 	char	name[256];
 	int i;
 	qboolean first_line;
+	qboolean player_spawn;
 	cvar_t	*tgame;
 
 	tgame = gi.cvar("game", "", 0);
@@ -2315,6 +2316,7 @@ void WriteEnts(void)
 	for (i=0;i<MAX_ENTS;i++)
 	if (level_items.ents[i])
 	{
+		player_spawn = !strncmp(level_items.ents[i]->classname, "info_player_", 12);
 		wrote = true;
 		if (!first_line)
 		{
@@ -2342,7 +2344,16 @@ void WriteEnts(void)
 		}
 
 		fprintf (f, "\"origin\" \"%f %f %f\"\n",level_items.ents[i]->s.origin[0],level_items.ents[i]->s.origin[1],level_items.ents[i]->s.origin[2]);
-        if (level_items.ents[i]->s.angles[0]){
+		if (player_spawn)
+		{
+			if (!VectorCompare(level_items.ents[i]->velocity, vec3_origin))
+				fprintf (f, "\"velocity\" \"%.9g %.9g %.9g\"\n", level_items.ents[i]->velocity[0], level_items.ents[i]->velocity[1], level_items.ents[i]->velocity[2]);
+			if (level_items.ents[i]->speed)
+				fprintf (f, "\"speed\" \"%.9g\"\n", level_items.ents[i]->speed);
+			if (!VectorCompare(level_items.ents[i]->s.angles, vec3_origin))
+				fprintf (f, "\"angles\" \"%.9g %.9g %.9g\"\n", level_items.ents[i]->s.angles[0], level_items.ents[i]->s.angles[1], level_items.ents[i]->s.angles[2]);
+		}
+        else if (level_items.ents[i]->s.angles[0]){
 		    fprintf (f, "\"angles\" \"%f %f %f\"\n",level_items.ents[i]->s.angles[0],level_items.ents[i]->s.angles[1],level_items.ents[i]->s.angles[2]);
         }
         if (level_items.ents[i]->target)
@@ -3081,13 +3092,13 @@ void Cmd_Time_f (edict_t *ent)
 	switch (level.status)
 	{
 	case 0 :
-		gi.cprintf (ent, PRINT_HIGH, "Time remaining %02d:%02d.\n",(int)((int)(((mset_vars->timelimit*60)+(map_added_time*60))-level.time)/60),(int)((int)(((mset_vars->timelimit*60)+(map_added_time*60))-level.time)%60));
+		gi.cprintf (ent, PRINT_HIGH, "Time remaining %02d:%02d.\n",(int)G_MapTimeRemaining()/60,(int)G_MapTimeRemaining()%60);
 	break;
 	case LEVEL_STATUS_OVERTIME :
-			gi.cprintf (ent, PRINT_HIGH, "Time remaining %02d:%02d.\n",(int)((int)((gset_vars->overtimelimit*60)+gset_vars->overtimewait-level.time)/60),(int)((int)((gset_vars->overtimelimit*60)+gset_vars->overtimewait-level.time)%60));
+			gi.cprintf (ent, PRINT_HIGH, "Time remaining %02d:%02d.\n",(int)((int)((gset_vars->overtimelimit*60)+gset_vars->overtimewait-G_MapTime())/60),(int)((int)((gset_vars->overtimelimit*60)+gset_vars->overtimewait-G_MapTime())%60));
 	break;
 	case LEVEL_STATUS_VOTING :
-			gi.cprintf (ent, PRINT_HIGH, "Time remaining %02d.\n",(int)(gset_vars->votingtime-level.time));
+			gi.cprintf (ent, PRINT_HIGH, "Time remaining %02d.\n",(int)(gset_vars->votingtime-G_MapTime()));
 	break;
 	}
 }
@@ -3565,15 +3576,15 @@ void CTFSilence(edict_t *ent)
 	}
 
 	if (ent->client->resp.admin < aset_vars->ADMIN_VOTE_LEVEL)
-	if ((mset_vars->timelimit*60)+(map_added_time*60)-level.time<120)
+	if (G_MapTimeRemaining()<120)
 	{
 		gi.cprintf(ent,PRINT_HIGH,"You cannot initiate a vote of this kind when timeleft is under 2 minutes\n");
 		return;
 	}
 
-	if ((level.time<20) && (ent->client->resp.admin<aset_vars->ADMIN_SILENCE_LEVEL))
+	if ((G_MapTime()<20) && (ent->client->resp.admin<aset_vars->ADMIN_SILENCE_LEVEL))
 	{
-		gi.cprintf(ent,PRINT_HIGH,"Please wait %2.1f seconds before calling a vote\n",20.0-level.time);
+		gi.cprintf(ent,PRINT_HIGH,"Please wait %2.1f seconds before calling a vote\n",20.0-G_MapTime());
 		return;
 	}
 
@@ -3693,7 +3704,7 @@ void CTFRand(edict_t *ent)
 	}
 
 	if (ent->client->resp.admin < aset_vars->ADMIN_VOTE_LEVEL)
-	if ((mset_vars->timelimit*60)+(map_added_time*60)-level.time<120)
+	if (G_MapTimeRemaining()<120)
 	{
 		if (Get_Voting_Clients()>1)
 		{
@@ -3702,7 +3713,7 @@ void CTFRand(edict_t *ent)
 		}
 	}
 
-	if ((gset_vars->nomapvotetime >= level.time) && (ent->client->resp.admin<aset_vars->ADMIN_VOTE_LEVEL) && curclients > 2) // 0.84wp_h1
+	if ((gset_vars->nomapvotetime >= G_MapTime()) && (ent->client->resp.admin<aset_vars->ADMIN_VOTE_LEVEL) && curclients > 2) // 0.84wp_h1
 	{
 		gi.cprintf(ent,PRINT_HIGH,"Votes have been disabled for the first %d seconds of a map.\n",gset_vars->nomapvotetime);
 		return;
@@ -3765,7 +3776,7 @@ void CTFNominate(edict_t *ent)
 		return;
 	}
 	if (ent->client->resp.admin < aset_vars->ADMIN_VOTE_LEVEL)
-	if ((mset_vars->timelimit*60)+(map_added_time*60)-level.time<120)
+	if (G_MapTimeRemaining()<120)
 	{
 		if (Get_Voting_Clients()>1)
 		{
@@ -3782,7 +3793,7 @@ void CTFNominate(edict_t *ent)
 
 	index = ent-g_edicts-1;
 
-	if ((gset_vars->nomapvotetime >= level.time) && (ent->client->resp.admin<aset_vars->ADMIN_VOTE_LEVEL) && curclients > 2) // 0.84wp_h1
+	if ((gset_vars->nomapvotetime >= G_MapTime()) && (ent->client->resp.admin<aset_vars->ADMIN_VOTE_LEVEL) && curclients > 2) // 0.84wp_h1
 	{
 		gi.cprintf(ent,PRINT_HIGH,"Votes have been disabled for the first %d seconds of a map.\n",gset_vars->nomapvotetime);
 		return;
@@ -4328,7 +4339,7 @@ void Jet_ApplyLifting( edict_t *ent )
   float		amplitude = 2.0;
 
   /*calculate the z-distance to lift in this step*/
-  delta = sin( (float)((level.framenum%time)*(360/time))/180*M_PI ) * amplitude;
+  delta = sin( (float)(((level.framenum-map_hold_frames)%time)*(360/time))/180*M_PI ) * amplitude;
   delta = (float)((int)(delta*8))/8; /*round to multiples of 0.125*/
 
   VectorCopy( ent->s.origin, new_origin );
@@ -7403,9 +7414,20 @@ void Apply_Paused_Details(edict_t *ent)
 	ent->client->ps.pmove.pm_type = PM_FREEZE;*/
 }
 
+static void StoreSpawnPoint(edict_t *ent)
+{
+	// Grounding a launch spawn can cancel its velocity before movement starts.
+	if (VectorCompare(ent->velocity, vec3_origin))
+		M_droptofloor(ent);
+	Cmd_Store_f(ent);
+}
+
 void Kill_Hard(edict_t *ent)
 {
 	vec3_t	spawn_origin, spawn_angles;
+	vec3_t	spawn_velocity;
+	qboolean	use_spawn_velocity;
+	edict_t	*spawn_spot;
 	gclient_t	*client;
 	int		i;
 	gitem_t		*item;
@@ -7426,17 +7448,29 @@ void Kill_Hard(edict_t *ent)
 	memset(ent->client->pers.inventory, 0, sizeof(ent->client->pers.inventory));
 	ent->client->Jet_framenum = 0;
 
-	SelectSpawnPoint (ent, spawn_origin, spawn_angles);
+	VectorClear (spawn_velocity);
+	use_spawn_velocity = false;
+	spawn_spot = SelectSpawnPointSpot (ent, spawn_origin, spawn_angles);
+	if (spawn_spot && spawn_spot != ent)
+		use_spawn_velocity = CalcSpawnVelocity (spawn_spot, spawn_velocity);
 	ent->client->resp.finished = false;
 	ent->viewheight = 22;
 	ent->air_finished = level.time + 12;
 	ent->waterlevel = 0;
 	ent->watertype = 0;
 	VectorClear (ent->velocity);
+	VectorClear (client->ps.pmove.velocity);
 
 	client->ps.pmove.origin[0] = spawn_origin[0]*8;
 	client->ps.pmove.origin[1] = spawn_origin[1]*8;
 	client->ps.pmove.origin[2] = spawn_origin[2]*8;
+	if (use_spawn_velocity)
+	{
+		ent->groundentity = NULL;
+		VectorCopy (spawn_velocity, ent->velocity);
+		for (i=0 ; i<3 ; i++)
+			client->ps.pmove.velocity[i] = (short)(spawn_velocity[i] * 8.0f);
+	}
 //ZOID
 	client->ps.pmove.pm_flags &= ~PMF_NO_PREDICTION;
 //ZOID
@@ -7520,8 +7554,7 @@ ent->client->resp.replay_speed = REPLAY_SPEED_ONE;
 	KillMyRox(ent);
 
 	if (mset_vars->ezmode == 1) { // force a store, so they cant cheat
-        M_droptofloor(ent);
-        Cmd_Store_f(ent);
+        StoreSpawnPoint(ent);
 		ent->client->pers.total_recall = 0; // reset recall count
 	}
 
@@ -8033,14 +8066,12 @@ void Notify_Of_Team_Commands(edict_t *ent)
 	if (ent->client->resp.ctf_team==CTF_TEAM1) {
 		gi.cprintf(ent,PRINT_HIGH,"Team Easy: Use the commands store and recall to practice jumps.\n");
 		if (!ent->client->resp.can_store) { // this only happens if a person has not placed a store
-			M_droptofloor(ent); // drop them to the floor in case spawn is raised
-			Cmd_Store_f(ent);
+			StoreSpawnPoint(ent);
 		}
 	}
 	else if (ent->client->resp.ctf_team==CTF_TEAM2) {
 		if (mset_vars->ezmode == 1) { // force a store, so they cant cheat
-			M_droptofloor(ent);
-			Cmd_Store_f(ent);
+			StoreSpawnPoint(ent);
 			ent->client->pers.total_recall = 0; // reset recall count
 			gi.cprintf(ent,PRINT_HIGH,"Ez Mode: Hard mode... with teles.\n");
 		} else
@@ -8712,7 +8743,7 @@ int CheckOverTimeRules(void)
 	}
 	
 
-	if (level.framenum & 31)
+	if ((level.framenum - map_hold_frames) & 31)
 		return 0;
 	for (i=0 ; i<maxclients->value ; i++)
 	{
@@ -8763,7 +8794,7 @@ int CheckOverTimeLastManRules(void)
 	}
 	
 
-	if (level.framenum & 31)
+	if ((level.framenum - map_hold_frames) & 31)
 		return -1;
 	for (i=0 ; i<maxclients->value ; i++)
 	{
@@ -10127,10 +10158,10 @@ void Add_Time(edict_t *ent)
 	else
 		gi.bprintf(PRINT_HIGH, "%i minutes added (%i total time added)\n", i, map_added_time);
 
-	timeleft = ((int)(level.time / 60)) + (mset_vars->timelimit + map_added_time);
+	timeleft = ((int)(G_MapTime() / 60)) + (mset_vars->timelimit + map_added_time);
 	if (timeleft < 0)
 	{
-		gi.bprintf(PRINT_HIGH,"%d\n",((int)(level.time / 60)) + (mset_vars->timelimit + map_added_time));
+		gi.bprintf(PRINT_HIGH,"%d\n",((int)(G_MapTime() / 60)) + (mset_vars->timelimit + map_added_time));
 		End_Jumping();
 		return;
 	}
@@ -11059,14 +11090,14 @@ void CTFVoteTime(edict_t *ent)
 	if (ent->client->resp.silence)
 		return;
 
-	if ((level.time<20) && (ent->client->resp.admin<aset_vars->ADMIN_ADDTIME_LEVEL) && curclients > 2) // hannibal
+	if ((G_MapTime()<20) && (ent->client->resp.admin<aset_vars->ADMIN_ADDTIME_LEVEL) && curclients > 2) // hannibal
 	{
-		gi.cprintf(ent,PRINT_HIGH,"Please wait %2.1f seconds before calling a vote\n",20.0-level.time);
+		gi.cprintf(ent,PRINT_HIGH,"Please wait %2.1f seconds before calling a vote\n",20.0-G_MapTime());
 		return;
 	}
 
 
-	if ((ent->client->resp.admin<aset_vars->ADMIN_ADDTIME_LEVEL) && gset_vars->notimevotetime >= level.time && curclients > 2)
+	if ((ent->client->resp.admin<aset_vars->ADMIN_ADDTIME_LEVEL) && gset_vars->notimevotetime >= G_MapTime() && curclients > 2)
 	{
 		gi.cprintf(ent,PRINT_HIGH,"Votes have been disabled for the first %d seconds of a map.\n",gset_vars->notimevotetime);
 		return;

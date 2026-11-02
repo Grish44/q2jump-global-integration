@@ -1013,7 +1013,7 @@ SelectSpawnPoint
 Chooses a player start, deathmatch start, coop start, etc
 ============
 */
-void	SelectSpawnPoint (edict_t *ent, vec3_t origin, vec3_t angles)
+edict_t *SelectSpawnPointSpot (edict_t *ent, vec3_t origin, vec3_t angles)
 {
 	edict_t	*spot = NULL;
 
@@ -1056,6 +1056,70 @@ void	SelectSpawnPoint (edict_t *ent, vec3_t origin, vec3_t angles)
 	VectorCopy (spot->s.origin, origin);
 	origin[2] += 9;
 	VectorCopy (spot->s.angles, angles);
+	return spot;
+}
+
+void SelectSpawnPoint (edict_t *ent, vec3_t origin, vec3_t angles)
+{
+	(void)SelectSpawnPointSpot (ent, origin, angles);
+}
+
+static qboolean SpawnFloatIsFinite (float value)
+{
+	union
+	{
+		float f;
+		unsigned int bits;
+	} component;
+
+	// Release builds use -ffast-math, so inspect the IEEE float exponent.
+	component.f = value;
+	return (component.bits & 0x7f800000U) != 0x7f800000U;
+}
+
+static qboolean SpawnVelocityValid (vec3_t velocity)
+{
+	int i;
+
+	for (i=0 ; i<3 ; i++)
+	{
+		if (!SpawnFloatIsFinite (velocity[i]) ||
+			velocity[i] < -4096.0f || velocity[i] > 4095.875f)
+			return false;
+	}
+	return true;
+}
+
+qboolean CalcSpawnVelocity (edict_t *spawn_spot, vec3_t out)
+{
+	vec3_t forward;
+	int i;
+
+	VectorClear (out);
+	if (!spawn_spot || !SpawnVelocityValid (spawn_spot->velocity))
+		return false;
+
+	if (VectorLength(spawn_spot->velocity) > 0.01f)
+	{
+		VectorCopy (spawn_spot->velocity, out);
+		return true;
+	}
+
+	if (!SpawnFloatIsFinite (spawn_spot->speed) || spawn_spot->speed <= 0.0f)
+		return false;
+	for (i=0 ; i<3 ; i++)
+	{
+		if (!SpawnFloatIsFinite (spawn_spot->s.angles[i]))
+			return false;
+	}
+
+	AngleVectors (spawn_spot->s.angles, forward, NULL, NULL);
+	VectorScale (forward, spawn_spot->speed, out);
+	if (SpawnVelocityValid (out) && VectorLength(out) > 0.01f)
+		return true;
+
+	VectorClear (out);
+	return false;
 }
 
 //======================================================================
@@ -1160,6 +1224,9 @@ void PutClientInServer (edict_t *ent)
 	vec3_t	maxs = {16, 16, 32};
 	int		index;
 	vec3_t	spawn_origin, spawn_angles;
+	vec3_t	spawn_velocity;
+	qboolean	use_spawn_velocity;
+	edict_t	*spawn_spot;
 	gclient_t	*client;
 	int		i;
 	client_persistant_t	saved;
@@ -1179,7 +1246,11 @@ void PutClientInServer (edict_t *ent)
 	// find a spawn point
 	// do it before setting health back up, so farthest
 	// ranging doesn't count this client
-	SelectSpawnPoint (ent, spawn_origin, spawn_angles);
+	spawn_spot = SelectSpawnPointSpot (ent, spawn_origin, spawn_angles);
+	VectorClear (spawn_velocity);
+	use_spawn_velocity = false;
+	if (spawn_spot && spawn_spot != ent)
+		use_spawn_velocity = CalcSpawnVelocity (spawn_spot, spawn_velocity);
 
 	//pooy
 	if (gametype->value!=GAME_CTF)
@@ -1190,6 +1261,8 @@ void PutClientInServer (edict_t *ent)
 				ent->client->ps.pmove.delta_angles[i] = ANGLE2SHORT(spawn_angles[i] - ent->client->resp.cmd_angles[i]);
 			VectorCopy(ent->client->resp.store[1].store_pos,spawn_origin);
 			VectorCopy(ent->client->resp.store[1].store_angles,spawn_angles);
+			use_spawn_velocity = false;
+			VectorClear (spawn_velocity);
 		}
 	}
 	ent->client->resp.finished = false;
@@ -1334,6 +1407,13 @@ void PutClientInServer (edict_t *ent)
 	if (CTFStartClient(ent))
 		return;
 //ZOID
+
+	if (use_spawn_velocity)
+	{
+		VectorCopy (spawn_velocity, ent->velocity);
+		for (i=0 ; i<3 ; i++)
+			client->ps.pmove.velocity[i] = (short)(spawn_velocity[i] * 8.0f);
+	}
 
 	if (!KillBox (ent))
 	{	// could't spawn in?

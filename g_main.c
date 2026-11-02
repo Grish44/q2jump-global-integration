@@ -43,6 +43,7 @@ double GetTimeSeconds(void)
 
 game_locals_t	game;
 level_locals_t	level;
+int map_hold_frames;
 game_import_t	gi;
 game_export_t	globals;
 spawn_temp_t	st;
@@ -680,7 +681,7 @@ void CheckDMRules (void)
 			}*/
 			
 
-			//right, first see if level.time > timelimit
+			//right, first see if the map countdown has expired
 			//if it is, run end jumping
 			//set level.status to 1
 			//
@@ -688,7 +689,7 @@ void CheckDMRules (void)
 			if (!level.status)
 			{
 
-				if (level.time >= (mset_vars->timelimit*60)+(map_added_time*60))
+				if (G_MapTimeRemaining() <= 0)
 				{
 					End_Jumping();
 					return;
@@ -699,10 +700,10 @@ void CheckDMRules (void)
 				{  // hann
 					// hann: had to do silly looking stuff here with multiplying
 					// hann: and dividing times to get it to turn out right.
-					leveltimeint = level.time*100;  // hann
+					leveltimeint = G_MapTime()*100;  // hann
 					if (leveltimeint % 6000 == 0)  // hann
 					{  // hann
-						timeleft = ((mset_vars->timelimit*60)+(map_added_time*60) - level.time)/60;  // hann
+						timeleft = G_MapTimeRemaining()/60;  // hann
 						if (timeleft == 1)  // hann
 						{
 //							Com_Printf("%d minutes left.\n",timeleft);  // hann
@@ -869,6 +870,45 @@ void ExitLevel (void)
 	}
 }
 
+// Map time excludes empty-server holds; entity deadlines use level.time.
+float G_MapTime (void)
+{
+	return (level.framenum - map_hold_frames)*FRAMETIME;
+}
+
+float G_MapTimeRemaining (void)
+{
+	return (mset_vars->timelimit*60)+(map_added_time*60)-G_MapTime();
+}
+
+void G_AdvanceTime (void)
+{
+	int map_framenum = level.framenum - map_hold_frames;
+	float map_time = G_MapTime();
+	int seconds = (int)((mset_vars->timelimit*60)+(map_added_time*60)-map_time)%60;
+	int minutes = ((mset_vars->timelimit*60)+(map_added_time*60)-map_time)/60;
+
+	level.framenum++;
+	map_framenum++;
+
+	// Preserve the legacy countdown cadence and hold conditions, but only
+	// rewind the map clock. Entity and client deadlines must keep advancing.
+	if (curclients == 0 && gset_vars->holdtime == 1 && !level.intermissiontime
+		&& minutes <= 0 && seconds + 10 > 0)
+	{
+		while (1)
+		{
+			seconds = (int)((mset_vars->timelimit*60)+(map_added_time*60)-map_time)%60;
+			if (seconds + 10 >= 69)
+				break;
+			map_framenum--;
+			map_time = map_framenum*FRAMETIME;
+		}
+	}
+	map_hold_frames = level.framenum - map_framenum;
+	level.time = level.framenum*FRAMETIME;
+}
+
 /*
 ================
 G_RunFrame
@@ -891,9 +931,7 @@ void G_RunFrame (void)
 	char          kick_msg[256];          // log buffer
 	int tempclients = 0;
 	char text[1024];
-	int temp2;
 	int itemp;
-	int j = 0;
 
 	byte command;
 	unsigned long data;
@@ -920,15 +958,7 @@ void G_RunFrame (void)
 		CheckCmdFile();
 	}
 
-	temp2 = (int)(
-			((mset_vars->timelimit*60)+
-			(map_added_time*60))
-			-level.time)%60;
-
-	itemp = (
-			((mset_vars->timelimit*60)+
-			(map_added_time*60))
-			-level.time)/60;
+	itemp = G_MapTimeRemaining()/60;
 	if (itemp<=0 && !num_time_votes && gset_vars->autotime && (ctfgame.election == ELECT_NONE) && activeclients>0 && map_allow_voting) // draxi - added "map_allow_voting" so the dvotes command disable/enable it!
 	{
 		num_time_votes++;
@@ -942,43 +972,8 @@ void G_RunFrame (void)
 		}
 
 	}
-	level.framenum ++;
-//	if (0 == curclients && 1 == gset_vars->holdtime)
-//	if (0 == curclients && 1 == gset_vars->holdtime && !level.status) // 0.84_h2
-	if (0 == curclients && 1 == gset_vars->holdtime && !level.intermissiontime) // 0.84_h2
-	{
-		if (itemp > 0)
-		{
-		}
-		else if (temp2 + 10 > 0)
-		{
-//			gi.dprintf("HOLDING TIME.\n");
-			//level.framenum--;
-			
-			while (j == 0)
-			{
-				//level.framenum--;
-				//level.time = level.framenum*FRAMETIME;
-				temp2 = (int)(
-			((mset_vars->timelimit*60)+
-			(map_added_time*60))
-			-level.time)%60;
-				if (temp2 + 10 >= 69)
-				{
-					j = 1;
-					break;
-				}
-				level.framenum--;
-				level.time = level.framenum*FRAMETIME;
-				//else
-				//	level.framenum--;
-			}
-		}
-
-	}
-	
+	G_AdvanceTime();
 	server_time ++;
-	level.time = level.framenum*FRAMETIME;
 
 	if (level.status==LEVEL_STATUS_OVERTIME)
 	{
@@ -1163,7 +1158,7 @@ void G_RunFrame (void)
 		switch (level.status)
 		{
 		case 0 :
-			i = (((mset_vars->timelimit*60)+(map_added_time*60))-level.time);
+			i = G_MapTimeRemaining();
 			if (i>0)
 			{
 /*				if (!Neuro_RedKey_Overide)

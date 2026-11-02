@@ -454,7 +454,9 @@ void ED_ParseField (char *key, char *value, edict_t *ent,int add)
 				*(char **)(b+f->ofs) = ED_NewString (value);
 				break;
 			case F_VECTOR:
-				sscanf (value, "%f %f %f", &vec[0], &vec[1], &vec[2]);
+				if (sscanf (value, "%f %f %f", &vec[0], &vec[1], &vec[2]) != 3 &&
+					!Q_stricmp(f->name, "velocity"))
+					VectorClear (vec);
 				((float *)(b+f->ofs))[0] = vec[0];
 				((float *)(b+f->ofs))[1] = vec[1];
 				((float *)(b+f->ofs))[2] = vec[2];
@@ -631,6 +633,7 @@ void SpawnEntities (char *mapname, char *entities, char *spawnpoint)
 	}
 	//reset added time
 	map_added_time = 0;
+	map_hold_frames = 0;
 	map_allow_voting = true;
 	level_items.locked = false;
 
