@@ -5477,6 +5477,10 @@ void Cmd_Recall(edict_t *ent)
 			VectorCopy (spawn_origin, ent->s.origin);
 			ent->s.origin[2] += 1;	// make sure off ground
 			VectorCopy (ent->s.origin, ent->s.old_origin);
+			// Refresh horizontal speed before recall triggers can use it.
+			VectorCopy (ent->velocity, spawn_origin);
+			spawn_origin[2] = 0;
+			client->resp.cur_speed = VectorLength(spawn_origin);
 
 			// set the delta angle
 			for (i=0 ; i<2 ; i++)
@@ -7471,6 +7475,10 @@ void Kill_Hard(edict_t *ent)
 		for (i=0 ; i<3 ; i++)
 			client->ps.pmove.velocity[i] = (short)(spawn_velocity[i] * 8.0f);
 	}
+	// Refresh horizontal speed before spawn triggers can use it.
+	VectorCopy (ent->velocity, spawn_velocity);
+	spawn_velocity[2] = 0;
+	client->resp.cur_speed = VectorLength(spawn_velocity);
 //ZOID
 	client->ps.pmove.pm_flags &= ~PMF_NO_PREDICTION;
 //ZOID
@@ -8557,6 +8565,7 @@ void Overtime_Kill(edict_t *ent)
 	ent->waterlevel = 0;
 	ent->watertype = 0;
 	VectorClear (ent->velocity);
+	client->resp.cur_speed = 0;
 
 	client->ps.pmove.origin[0] = spawn_origin[0]*8;
 	client->ps.pmove.origin[1] = spawn_origin[1]*8;

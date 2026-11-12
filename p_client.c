@@ -1414,6 +1414,10 @@ void PutClientInServer (edict_t *ent)
 		for (i=0 ; i<3 ; i++)
 			client->ps.pmove.velocity[i] = (short)(spawn_velocity[i] * 8.0f);
 	}
+	// Refresh horizontal speed before spawn triggers can use it.
+	VectorCopy (ent->velocity, spawn_velocity);
+	spawn_velocity[2] = 0;
+	client->resp.cur_speed = VectorLength(spawn_velocity);
 
 	if (!KillBox (ent))
 	{	// could't spawn in?
@@ -1569,6 +1573,7 @@ void AutoPutClientInServer (edict_t *ent)
 	VectorCopy (mins, ent->mins);
 	VectorCopy (maxs, ent->maxs);
 	VectorClear (ent->velocity);
+	client->resp.cur_speed = 0;
 
 	// clear playerstate values
 	memset (&ent->client->ps, 0, sizeof(client->ps));
